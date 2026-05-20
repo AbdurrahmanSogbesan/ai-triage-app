@@ -1,0 +1,690 @@
+"use client";
+
+import { AlertTriangle, Clock, RefreshCw, UserPlus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { StatusBadge } from "@/components/clinical/status-badge";
+import { cn } from "@/lib/utils";
+import type { Case, Clinician } from "@/lib/types";
+
+type Props = {
+  cases: Case[];
+  clinicians: Clinician[];
+};
+
+type QueueRow = {
+  id: string;
+  patientId: string;
+  name: string;
+  age: number;
+  sex: "M" | "F";
+  arrivedAt: string;
+  waitedMin: number;
+  assignedTo: string | null;
+  status: Case["status"];
+};
+
+type Bucket = "all" | "unassigned" | "assigned";
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((s) => s[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function drInitials(name: string) {
+  return name
+    .replace(/^Dr\.\s*/i, "")
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase();
+}
+
+export function AdminQueue({ cases, clinicians }: Props) {
+  const [queue, setQueue] = useState<QueueRow[]>(() =>
+    cases.map((c) => ({
+      id: c.id,
+      patientId: c.patientId,
+      name: c.name,
+      age: c.age,
+      sex: c.sex,
+      arrivedAt: c.arrivedAt,
+      waitedMin: c.waitedMin,
+      assignedTo: c.assignedTo,
+      status: c.status,
+    }))
+  );
+  const [assigning, setAssigning] = useState<QueueRow | null>(null);
+  const [bucket, setBucket] = useState<Bucket>("all");
+
+  const stats = useMemo(
+    () => ({
+      total: queue.length,
+      unassigned: queue.filter((q) => !q.assignedTo).length,
+      withClinician: queue.filter(
+        (q) => q.assignedTo && q.status !== "awaiting_referee"
+      ).length,
+      pendingReferee: queue.filter((q) => q.status === "awaiting_referee").length,
+    }),
+    [queue]
+  );
+
+  const filtered = useMemo(() => {
+    if (bucket === "unassigned") return queue.filter((q) => !q.assignedTo);
+    if (bucket === "assigned") return queue.filter((q) => !!q.assignedTo);
+    return queue;
+  }, [queue, bucket]);
+
+  const handleAssign = (clinicianName: string) => {
+    if (!assigning) return;
+    const patientName = assigning.name;
+    setQueue((rows) =>
+      rows.map((r) =>
+        r.id === assigning.id
+          ? { ...r, assignedTo: clinicianName, status: "awaiting_clinician" }
+          : r
+      )
+    );
+    setAssigning(null);
+    toast.success(`Assigned to ${clinicianName}`, {
+      description: `${patientName} has been routed. ${
+        clinicianName.split(" ")[1] ?? clinicianName
+      } has been notified.`,
+    });
+  };
+
+  return (
+    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5 px-5 py-6 md:px-8 md:py-7">
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight">
+            Triage queue
+          </h1>
+          <p className="mt-1 text-[13.5px] text-muted-foreground">
+            Manage patient flow and assign completed triages to clinicians.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" className="h-9 w-fit gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh
+        </Button>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="In queue" value={stats.total} />
+        <StatCard
+          label="Unassigned"
+          value={stats.unassigned}
+          hint="Awaiting clinician"
+          tone="warn"
+        />
+        <StatCard label="With clinician" value={stats.withClinician} />
+        <StatCard
+          label="Pending referee"
+          value={stats.pendingReferee}
+          hint="Awaiting AI verification"
+          tone="info"
+        />
+      </div>
+
+      {/* Mobile segmented bucket switcher (design's AdminQueuePhone pattern) */}
+      <div
+        className="flex items-center gap-1 rounded-lg bg-muted p-1 md:hidden"
+        role="tablist"
+        aria-label="Filter patients"
+      >
+        <SegmentedBucket
+          active={bucket === "all"}
+          onClick={() => setBucket("all")}
+          label="All"
+          count={queue.length}
+        />
+        <SegmentedBucket
+          active={bucket === "unassigned"}
+          onClick={() => setBucket("unassigned")}
+          label="Unassigned"
+          count={stats.unassigned}
+        />
+        <SegmentedBucket
+          active={bucket === "assigned"}
+          onClick={() => setBucket("assigned")}
+          label="Assigned"
+          count={stats.withClinician + stats.pendingReferee}
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <Card className="gap-0 overflow-hidden py-0">
+          {/* "Today's patients" header bar — desktop only; mobile uses the
+              segmented bucket switcher above instead. */}
+          <div className="hidden items-center justify-between border-b border-border px-5 py-3 md:flex">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[14px] font-semibold">Today&apos;s patients</h2>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11.5px] font-medium tabular-nums text-foreground/70">
+                {queue.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <BucketBtn
+                active={bucket === "all"}
+                onClick={() => setBucket("all")}
+              >
+                All
+              </BucketBtn>
+              <BucketBtn
+                active={bucket === "unassigned"}
+                onClick={() => setBucket("unassigned")}
+              >
+                Unassigned
+              </BucketBtn>
+              <BucketBtn
+                active={bucket === "assigned"}
+                onClick={() => setBucket("assigned")}
+              >
+                Assigned
+              </BucketBtn>
+            </div>
+          </div>
+
+          <CardContent className="px-0 py-0">
+            {/* Desktop table — min-width forces horizontal scroll on narrow desktops */}
+            <Table className="hidden min-w-[820px] md:table">
+              <TableHeader>
+                <TableRow className="border-b border-border bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="h-9 pl-5 pr-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Patient
+                  </TableHead>
+                  <TableHead className="h-9 w-[120px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Arrived
+                  </TableHead>
+                  <TableHead className="h-9 w-[150px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Waiting
+                  </TableHead>
+                  <TableHead className="h-9 w-[220px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Assignment
+                  </TableHead>
+                  <TableHead className="h-9 w-[120px] px-4 text-right text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="sr-only">Action</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((row) => {
+                  const longWait = row.waitedMin > 60;
+                  const veryLongWait = row.waitedMin > 90;
+                  return (
+                    <TableRow
+                      key={row.id}
+                      className="hover:bg-muted/30"
+                    >
+                      <TableCell className="py-3 pl-5 pr-4">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11.5px] font-medium">
+                            {initials(row.name)}
+                          </span>
+                          <div className="flex flex-col leading-tight">
+                            <span className="text-[13.5px] font-medium">
+                              {row.name}
+                            </span>
+                            <span className="text-[11.5px] text-muted-foreground">
+                              {row.age}, {row.sex === "M" ? "Male" : "Female"} ·{" "}
+                              <span className="font-mono">{row.patientId}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 font-mono text-[13px] tabular-nums text-foreground/80">
+                        {row.arrivedAt}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "font-mono text-[13px] font-medium tabular-nums",
+                              veryLongWait
+                                ? "text-red-700"
+                                : longWait
+                                  ? "text-amber-700"
+                                  : "text-foreground/80"
+                            )}
+                          >
+                            {row.waitedMin}m
+                          </span>
+                          {longWait && (
+                            <AlertTriangle className="h-3 w-3 text-amber-500" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {row.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10.5px] font-medium text-primary">
+                              {drInitials(row.assignedTo)}
+                            </span>
+                            <span className="text-[13px] text-foreground/80">
+                              {row.assignedTo}
+                            </span>
+                            {row.status === "awaiting_referee" && (
+                              <span className="rounded px-1.5 py-0.5 text-[10.5px] font-medium text-amber-700 ring-1 ring-amber-200 bg-amber-50">
+                                Referee
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <StatusBadge status="awaiting_clinician" />
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        {row.assignedTo ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAssigning(row)}
+                          >
+                            Reassign
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => setAssigning(row)}
+                          >
+                            Assign
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Mobile cards */}
+            <ul className="flex flex-col divide-y divide-border md:hidden">
+              {filtered.map((row) => {
+                const longWait = row.waitedMin > 60;
+                const veryLongWait = row.waitedMin > 90;
+                return (
+                  <li key={row.id} className="px-4 py-3.5">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-[12px] font-medium">
+                        {initials(row.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-medium leading-tight">
+                          {row.name}
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                          {row.age}, {row.sex === "M" ? "Male" : "Female"} ·{" "}
+                          <span className="font-mono">{row.patientId}</span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5" />
+                            {row.arrivedAt}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 font-mono text-[11.5px] font-medium tabular-nums",
+                              veryLongWait
+                                ? "text-red-700"
+                                : longWait
+                                  ? "text-amber-700"
+                                  : "text-foreground/80"
+                            )}
+                          >
+                            {longWait && (
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                            )}
+                            {row.waitedMin}m wait
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+                      {row.assignedTo ? (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10.5px] font-medium text-primary">
+                            {drInitials(row.assignedTo)}
+                          </span>
+                          <span className="truncate text-[12.5px] text-foreground/80">
+                            {row.assignedTo}
+                          </span>
+                        </div>
+                      ) : (
+                        <StatusBadge status="awaiting_clinician" />
+                      )}
+                      {row.assignedTo ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAssigning(row)}
+                        >
+                          Reassign
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => setAssigning(row)}
+                        >
+                          Assign
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* Sidebar */}
+        <aside className="flex flex-col gap-4">
+          <ClinicianLoadCard clinicians={clinicians} />
+          <TodayCard />
+        </aside>
+      </div>
+
+      <AssignDialog
+        clinicians={clinicians}
+        assigning={assigning}
+        onCancel={() => setAssigning(null)}
+        onAssign={handleAssign}
+      />
+    </div>
+  );
+}
+
+function SegmentedBucket({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active
+          ? "bg-white text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[11px] tabular-nums",
+          active
+            ? "bg-muted text-foreground/80"
+            : "bg-muted-foreground/15 text-muted-foreground"
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function BucketBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded px-2 py-1 text-[12px] font-medium transition-colors",
+        active
+          ? "bg-muted text-foreground"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  tone?: "default" | "warn" | "info";
+}) {
+  const toneText = {
+    default: "text-foreground",
+    warn: "text-amber-700",
+    info: "text-blue-700",
+  };
+  return (
+    <Card>
+      <CardContent className="px-5 py-4">
+        <p className="text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <p
+          className={cn(
+            "mt-1.5 font-mono text-[28px] font-semibold leading-none tracking-tight tabular-nums",
+            toneText[tone]
+          )}
+        >
+          {value}
+        </p>
+        {hint && (
+          <p className="mt-1 text-[11.5px] text-muted-foreground">{hint}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClinicianLoadCard({ clinicians }: { clinicians: Clinician[] }) {
+  return (
+    <Card>
+      <CardContent className="px-5 py-5">
+        <h3 className="mb-3.5 text-[13px] font-semibold">Clinician load</h3>
+        <ul className="flex flex-col gap-3.5">
+          {clinicians.map((c) => {
+            const pct = Math.min(100, Math.round((c.load / c.capacity) * 100));
+            const tone =
+              pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-primary";
+            return (
+              <li key={c.id}>
+                <div className="mb-1.5 flex items-baseline justify-between">
+                  <span className="text-[12.5px] font-medium">{c.name}</span>
+                  <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+                    {c.load}
+                    <span className="text-muted-foreground/70">/{c.capacity}</span>
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn("h-full rounded-full", tone)}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-4 border-t border-border pt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
+          Auto-assignment is on. Cases without specific routing go to the
+          clinician with the lowest current load.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TodayCard() {
+  const kpis = [
+    { k: "Triages completed", v: "47" },
+    { k: "Average wait", v: "23m" },
+    { k: "AI-only auto-approved", v: "31 (66%)" },
+    { k: "Referred to referee", v: "5" },
+  ];
+  return (
+    <Card>
+      <CardContent className="px-5 py-5">
+        <h3 className="mb-3 text-[13px] font-semibold">Today</h3>
+        <dl className="flex flex-col gap-2.5">
+          {kpis.map((x) => (
+            <div key={x.k} className="flex items-baseline justify-between">
+              <dt className="text-[12.5px] text-muted-foreground">{x.k}</dt>
+              <dd className="font-mono text-[13px] font-medium tabular-nums">
+                {x.v}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AssignDialog({
+  assigning,
+  clinicians,
+  onAssign,
+  onCancel,
+}: {
+  assigning: QueueRow | null;
+  clinicians: Clinician[];
+  onAssign: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const lightest = useMemo(() => {
+    return [...clinicians].sort(
+      (a, b) => a.load / a.capacity - b.load / b.capacity
+    )[0];
+  }, [clinicians]);
+  const [selected, setSelected] = useState<string | undefined>(lightest?.name);
+
+  return (
+    <Dialog
+      open={assigning !== null}
+      onOpenChange={(o) => {
+        if (!o) onCancel();
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            <span className="inline-flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              {assigning ? `Assign ${assigning.name}` : "Assign"}
+            </span>
+          </DialogTitle>
+          <DialogDescription>
+            Pick a clinician for this case. The patient and AI summary will be
+            made available to them immediately.
+          </DialogDescription>
+        </DialogHeader>
+        {assigning && (
+          <ul className="flex flex-col gap-1.5">
+            {clinicians.map((c) => {
+              const pct = Math.round((c.load / c.capacity) * 100);
+              const on = selected === c.name;
+              const tone =
+                pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-primary";
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(c.name)}
+                    aria-pressed={on}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
+                      on
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-foreground/20 hover:bg-muted/60"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "h-4 w-4 shrink-0 rounded-full border-2",
+                        on
+                          ? "border-primary bg-primary"
+                          : "border-border bg-white"
+                      )}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-medium">
+                        {c.name}
+                      </div>
+                      <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+                        Current load · {c.load}/{c.capacity}
+                      </div>
+                    </div>
+                    <div className="w-20 shrink-0">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full", tone)}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => selected && onAssign(selected)}
+            disabled={!selected}
+          >
+            Assign case
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

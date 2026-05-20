@@ -1,0 +1,387 @@
+import type {
+  AdminProfile,
+  Case,
+  Clinician,
+  ClinicianProfile,
+  PastSession,
+  PatientProfile,
+  SoapReport,
+  TranscriptTurn,
+} from "@/lib/types";
+
+export const CASES: Case[] = [
+  {
+    id: "R-2041",
+    patientId: "P-7714",
+    name: "Adebayo Ogundimu",
+    age: 54,
+    sex: "M",
+    complaint: "Chest pain radiating to left arm for the past 2 hours",
+    severity: "red",
+    confidence: 92,
+    arrivedAt: "10:04",
+    waitedMin: 4,
+    vitals: { bpSys: 168, bpDia: 102, tempC: 37.1, weightKg: 84 },
+    assignedTo: "Dr. Ifeoma Okafor",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2042",
+    patientId: "P-7715",
+    name: "Chiamaka Eze",
+    age: 31,
+    sex: "F",
+    complaint: "Severe headache since morning, photophobia, neck stiffness",
+    severity: "orange",
+    confidence: 88,
+    arrivedAt: "10:08",
+    waitedMin: 11,
+    vitals: { bpSys: 132, bpDia: 84, tempC: 38.6, weightKg: 62 },
+    assignedTo: "Dr. Ifeoma Okafor",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2043",
+    patientId: "P-7716",
+    name: "Hauwa Suleiman",
+    age: 28,
+    sex: "F",
+    complaint: "Fever and body aches for 3 days, worse at night",
+    severity: "yellow",
+    confidence: 81,
+    arrivedAt: "10:12",
+    waitedMin: 18,
+    vitals: { bpSys: 118, bpDia: 76, tempC: 38.9, weightKg: 58 },
+    assignedTo: "Dr. Ifeoma Okafor",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2044",
+    patientId: "P-7717",
+    name: "Tunde Akinwale",
+    age: 42,
+    sex: "M",
+    complaint: "Persistent cough with sputum for 10 days",
+    severity: "yellow",
+    confidence: 73,
+    arrivedAt: "10:16",
+    waitedMin: 22,
+    vitals: { bpSys: 124, bpDia: 78, tempC: 37.8, weightKg: 76 },
+    assignedTo: null,
+    status: "awaiting_referee",
+  },
+  {
+    id: "R-2045",
+    patientId: "P-7718",
+    name: "Funmilayo Bello",
+    age: 67,
+    sex: "F",
+    complaint: "Dizziness and palpitations after climbing stairs",
+    severity: "orange",
+    confidence: 79,
+    arrivedAt: "10:21",
+    waitedMin: 27,
+    vitals: { bpSys: 152, bpDia: 94, tempC: 36.9, weightKg: 71 },
+    assignedTo: "Dr. Ifeoma Okafor",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2046",
+    patientId: "P-7719",
+    name: "Emeka Nwosu",
+    age: 23,
+    sex: "M",
+    complaint: "Sore throat and difficulty swallowing since yesterday",
+    severity: "green",
+    confidence: 94,
+    arrivedAt: "10:27",
+    waitedMin: 33,
+    vitals: { bpSys: 122, bpDia: 78, tempC: 37.4, weightKg: 68 },
+    assignedTo: "Dr. Chuka Eze",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2047",
+    patientId: "P-7720",
+    name: "Aisha Mohammed",
+    age: 36,
+    sex: "F",
+    complaint: "Lower abdominal pain, intermittent, since last night",
+    severity: "yellow",
+    confidence: 86,
+    arrivedAt: "10:33",
+    waitedMin: 41,
+    vitals: { bpSys: 128, bpDia: 82, tempC: 37.6, weightKg: 64 },
+    assignedTo: "Dr. Chuka Eze",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2048",
+    patientId: "P-7721",
+    name: "Olumide Adeyemi",
+    age: 49,
+    sex: "M",
+    complaint: "Lower back pain after lifting heavy objects 2 days ago",
+    severity: "green",
+    confidence: 91,
+    arrivedAt: "10:40",
+    waitedMin: 48,
+    vitals: { bpSys: 134, bpDia: 86, tempC: 36.8, weightKg: 82 },
+    assignedTo: null,
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2049",
+    patientId: "P-7722",
+    name: "Ngozi Obi",
+    age: 71,
+    sex: "F",
+    complaint: "Confusion, mild fever, reduced oral intake for 2 days",
+    severity: "orange",
+    confidence: 71,
+    arrivedAt: "10:47",
+    waitedMin: 55,
+    vitals: { bpSys: 108, bpDia: 64, tempC: 38.2, weightKg: 54 },
+    assignedTo: null,
+    status: "awaiting_referee",
+  },
+  {
+    id: "R-2050",
+    patientId: "P-7723",
+    name: "Ibrahim Yusuf",
+    age: 19,
+    sex: "M",
+    complaint: "Routine medication refill for managed asthma",
+    severity: "blue",
+    confidence: 96,
+    arrivedAt: "10:54",
+    waitedMin: 62,
+    vitals: { bpSys: 118, bpDia: 74, tempC: 36.6, weightKg: 66 },
+    assignedTo: "Dr. Aisha Bello",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2051",
+    patientId: "P-7724",
+    name: "Zainab Lawal",
+    age: 45,
+    sex: "F",
+    complaint: "Joint pain in both knees, gradually worse over months",
+    severity: "green",
+    confidence: 89,
+    arrivedAt: "11:03",
+    waitedMin: 71,
+    vitals: { bpSys: 126, bpDia: 80, tempC: 36.7, weightKg: 78 },
+    assignedTo: "Dr. Aisha Bello",
+    status: "awaiting_clinician",
+  },
+  {
+    id: "R-2052",
+    patientId: "P-7725",
+    name: "Segun Adebola",
+    age: 58,
+    sex: "M",
+    complaint: "Mild headache, blood pressure check before clinic",
+    severity: "blue",
+    confidence: 97,
+    arrivedAt: "11:16",
+    waitedMin: 84,
+    vitals: { bpSys: 138, bpDia: 88, tempC: 36.8, weightKg: 80 },
+    assignedTo: "Dr. Tunde Lawal",
+    status: "awaiting_clinician",
+  },
+];
+
+export const ME_PATIENT: PatientProfile = {
+  id: "P-7714",
+  firstName: "Adebayo",
+  lastName: "Ogundimu",
+  dateOfBirth: "1971-08-14",
+  age: 54,
+  sex: "M",
+  phone: "+234 803 555 0142",
+  email: "adebayo.ogundimu@example.com",
+  bloodGroup: "O+",
+  genotype: "HbAA",
+  language: "English (default)",
+};
+
+export const ME_PATIENT_ACTIVE_CASE_ID = "R-2041";
+
+export const ME_PATIENT_IN_PROGRESS: {
+  id: string;
+  complaint: string;
+  startedAgo: string;
+  progress: number;
+} | null = {
+  id: "R-2041",
+  complaint: "Chest pain radiating to left arm for the past 2 hours",
+  startedAgo: "4 min ago",
+  progress: 60,
+};
+
+export const PATIENT_HISTORY: PastSession[] = [
+  {
+    id: "R-1988",
+    date: "Apr 28, 2026",
+    complaint: "Recurring lower back pain after lifting",
+    status: "completed",
+    assignedTo: "Dr. Ifeoma Okafor",
+  },
+  {
+    id: "R-1922",
+    date: "Mar 12, 2026",
+    complaint: "Annual blood pressure review",
+    status: "completed",
+    assignedTo: "Dr. Chuka Eze",
+  },
+  {
+    id: "R-1801",
+    date: "Jan 04, 2026",
+    complaint: "Mild fever and fatigue",
+    status: "completed",
+    assignedTo: "Dr. Aisha Bello",
+  },
+  {
+    id: "R-1742",
+    date: "Nov 19, 2025",
+    complaint: "Cough persisting for two weeks",
+    status: "abandoned",
+  },
+];
+
+export const TRANSCRIPT_R2041: TranscriptTurn[] = [
+  {
+    role: "patient",
+    text: "I've had chest pain for about two hours. It started while I was walking up the stairs at home.",
+  },
+  {
+    role: "ai",
+    text: "Thank you for telling me, Adebayo. I'm sorry you're feeling this. Can you describe the pain — is it sharp, dull, tight, or burning?",
+  },
+  {
+    role: "patient",
+    text: "It feels tight, like pressure. It also goes into my left arm a bit.",
+  },
+  {
+    role: "ai",
+    text: "Got it. On a scale from 1 to 10, where 10 is the worst pain you've ever felt, how would you rate it right now?",
+  },
+  { role: "patient", text: "Around a 7. It eased a little after I sat down." },
+  {
+    role: "ai",
+    text: "Have you felt short of breath, sweaty, nauseous, or had a similar episode before?",
+  },
+  {
+    role: "patient",
+    text: "Yes, I was sweating a lot and felt a bit nauseous. Nothing like this before.",
+  },
+  {
+    role: "ai",
+    text: "Are you currently taking any medication, and do you have any conditions like high blood pressure or diabetes?",
+  },
+  {
+    role: "patient",
+    text: "I take medication for high blood pressure. Lisinopril, I think. No diabetes.",
+  },
+  {
+    role: "ai",
+    text: "Thank you. Is there anything else you'd like to add before I prepare a summary for the doctor?",
+  },
+];
+
+export const SOAP_R2041: SoapReport = {
+  subjective: {
+    cc: "Chest pain radiating to left arm, 2 hours duration.",
+    hpi: "54-year-old male, known hypertensive on lisinopril. Reports sudden onset of tight, pressure-like central chest pain while climbing stairs at home, 2 hours prior to presentation. Pain radiates to the left arm. Associated diaphoresis and nausea. Pain partially eased on rest, current intensity 7/10. No prior similar episodes. No history of diabetes or known cardiac disease.",
+    pmh: "Hypertension (on lisinopril). No prior MI, CABG, or stroke. No diabetes.",
+    meds: "Lisinopril (dose unconfirmed by patient).",
+    allergies: "No known drug allergies reported.",
+    social: "Patient declined to discuss smoking and alcohol intake in detail.",
+  },
+  objective: {
+    vitalsNote: "Hypertensive on presentation. Afebrile.",
+    bp: "168 / 102 mmHg",
+    temp: "37.1 °C",
+    weight: "84 kg",
+  },
+  assessment: {
+    primary: "Acute coronary syndrome — high clinical suspicion.",
+    differentials: [
+      "ST-elevation myocardial infarction (STEMI)",
+      "Non-ST-elevation myocardial infarction (NSTEMI)",
+      "Unstable angina",
+      "Aortic dissection (lower probability, exam-dependent)",
+    ],
+    rationale:
+      "Classic exertional substernal pressure with left-arm radiation, diaphoresis, and nausea in a hypertensive male over 50, with elevated BP on arrival. Symptoms warrant immediate cardiology evaluation.",
+  },
+  plan: [
+    "12-lead ECG within 10 minutes of arrival.",
+    "Troponin I — initial draw, repeat at 3 hours.",
+    "Aspirin 300 mg PO chewed (confirm no contraindication).",
+    "GTN sublingual 0.4 mg if SBP remains > 100 mmHg.",
+    "Continuous cardiac monitoring and IV access ×2.",
+    "Notify on-call cardiology; consider activation of cath-lab pathway if ECG shows ST elevation.",
+  ],
+};
+
+export const CLINICIANS: Clinician[] = [
+  {
+    id: "C-101",
+    name: "Dr. Ifeoma Okafor",
+    load: 9,
+    capacity: 12,
+    speciality: "Emergency Medicine",
+  },
+  {
+    id: "C-102",
+    name: "Dr. Chuka Eze",
+    load: 6,
+    capacity: 12,
+    speciality: "Internal Medicine",
+  },
+  {
+    id: "C-103",
+    name: "Dr. Aisha Bello",
+    load: 11,
+    capacity: 12,
+    speciality: "Family Medicine",
+  },
+  {
+    id: "C-104",
+    name: "Dr. Tunde Lawal",
+    load: 4,
+    capacity: 10,
+    speciality: "Internal Medicine",
+  },
+];
+
+export const ME_CLINICIAN: ClinicianProfile = {
+  id: "C-101",
+  name: "Dr. Ifeoma Okafor",
+  email: "ifeoma.okafor@sunshine.med.ng",
+  phone: "+234 802 555 0917",
+  mdcnNumber: "MDCN/12834",
+  speciality: "Emergency Medicine",
+  department: "Triage · Sunshine Medical",
+  languages: ["English", "Yoruba", "Igbo"],
+};
+
+export const ME_ADMIN: AdminProfile = {
+  id: "A-01",
+  name: "Sade Bakare",
+  email: "sade.bakare@sunshine.admin.ng",
+  phone: "+234 805 555 0312",
+  role: "Triage admin",
+  department: "Patient flow",
+  joined: "Jan 2023",
+};
+
+export function getCaseById(id: string): Case | undefined {
+  return CASES.find((c) => c.id === id);
+}
+
+export function getCasesAssignedTo(clinicianName: string): Case[] {
+  return CASES.filter((c) => c.assignedTo === clinicianName);
+}
