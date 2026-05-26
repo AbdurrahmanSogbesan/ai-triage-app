@@ -1,0 +1,60 @@
+-- ============================================================================
+-- Seed users (clinician + admin).
+--
+-- This migration is intentionally empty — clinician and admin accounts are
+-- seeded manually because they require entries in `auth.users` (managed by
+-- Supabase Auth, not by migrations) before any profile row can reference
+-- them via the FK.
+--
+-- Procedure for each seeded account:
+--
+--   1. Open https://supabase.com/dashboard/project/<ref>/auth/users
+--   2. Click "Add user" → "Create new user".
+--      Email: as listed in the templates below.
+--      Password: anything strong (you'll share it with the seeded human).
+--      Toggle ON "Auto Confirm User" so they can log in immediately.
+--   3. Copy the new user's UUID from the auth.users list.
+--   4. Open the SQL Editor in the dashboard and run the matching INSERT
+--      template below, pasting the UUID into the `id` field.
+--
+-- After both inserts, the seeded clinician and admin can log in at /login
+-- and get routed to /clinician and /admin respectively by the layout-level
+-- role gate.
+--
+-- This file lives in migrations so `supabase db reset` reminds you that the
+-- seed step is needed; the migration itself is a no-op.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Clinician seed template (run in SQL Editor after creating the auth user)
+-- ----------------------------------------------------------------------------
+--
+-- insert into public.profiles
+--   (id, role, first_name, last_name, email, phone,
+--    mdcn_number, speciality, department, languages)
+-- values
+--   ('<paste-uuid-from-auth.users>',
+--    'clinician',
+--    'Ifeoma', 'Okafor',
+--    'i.okafor@sunshine.med.ng',
+--    '+234 800 000 0001',
+--    'MDCN/12345',
+--    'Emergency Medicine',
+--    'General OPD',
+--    array['en', 'yo']);
+
+-- ----------------------------------------------------------------------------
+-- Admin seed template (run in SQL Editor after creating the auth user)
+-- ----------------------------------------------------------------------------
+--
+-- insert into public.profiles
+--   (id, role, first_name, last_name, email, phone, department)
+-- values
+--   ('<paste-uuid-from-auth.users>',
+--    'admin',
+--    'Adaeze', 'Nwosu',
+--    'a.nwosu@sunshine.admin.ng',
+--    '+234 800 000 0002',
+--    'Outpatient Operations');
+
+select 1;  -- no-op so the migration applies cleanly and gets tracked.
