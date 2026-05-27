@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { cn } from "@/lib/utils";
+import { cn, shortReportId } from "@/lib/utils";
 import type { Case, Severity } from "@/lib/types";
 import { SEVERITY_META } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -386,14 +386,14 @@ function CaseRow({ caseRow }: { caseRow: Case }) {
           <span className="text-[13.5px] font-medium">{caseRow.name}</span>
           <span className="text-[11.5px] text-muted-foreground">
             {caseRow.age}, {caseRow.sex === "M" ? "Male" : "Female"} ·{" "}
-            <span className="font-mono">{caseRow.id}</span>
+            <span className="font-mono">{shortReportId(caseRow.id)}</span>
           </span>
         </Link>
       </TableCell>
       <TableCell className="max-w-[340px] px-4 py-3">
         <Link
           href={`/clinician/case/${caseRow.id}`}
-          className="line-clamp-1 text-[13px] text-foreground/80"
+          className="block max-w-[320px] truncate text-[13px] text-foreground/80"
           title={caseRow.complaint}
         >
           {caseRow.complaint}
@@ -492,7 +492,7 @@ function CaseCardMobile({ caseRow }: { caseRow: Case }) {
             </p>
             <p className="mt-0.5 text-[11.5px] text-muted-foreground">
               {caseRow.age}, {caseRow.sex === "M" ? "Male" : "Female"} ·{" "}
-              <span className="font-mono">{caseRow.id}</span> ·{" "}
+              <span className="font-mono">{shortReportId(caseRow.id)}</span> ·{" "}
               <span className="font-mono">{caseRow.waitedMin}m</span> wait
             </p>
           </div>

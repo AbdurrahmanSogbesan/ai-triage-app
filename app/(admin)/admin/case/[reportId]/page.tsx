@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import { format, parseISO } from "date-fns";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/clinical/status-badge";
 import { ProfileRow } from "@/components/clinical/profile-row";
-import { getCaseById } from "@/lib/data/mock-cases";
+
+import { getAdminCaseMetadata } from "../../_components/actions";
 
 export default async function AdminCasePage({
   params,
@@ -13,8 +15,16 @@ export default async function AdminCasePage({
   params: Promise<{ reportId: string }>;
 }) {
   const { reportId } = await params;
-  const caseRow = getCaseById(reportId);
+  const caseRow = await getAdminCaseMetadata(reportId);
   if (!caseRow) notFound();
+
+  const arrivedAtDisplay = (() => {
+    try {
+      return format(parseISO(caseRow.arrivedAt), "MMM d, yyyy · HH:mm");
+    } catch {
+      return caseRow.arrivedAt;
+    }
+  })();
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 py-6 md:px-8 md:py-8">
@@ -47,7 +57,7 @@ export default async function AdminCasePage({
             label="Patient"
             value={`${caseRow.name} · ${caseRow.age} · ${caseRow.sex === "M" ? "Male" : "Female"}`}
           />
-          <ProfileRow label="Arrived" value={caseRow.arrivedAt} mono />
+          <ProfileRow label="Arrived" value={arrivedAtDisplay} mono />
           <ProfileRow label="Waited" value={`${caseRow.waitedMin}m`} mono />
           <ProfileRow
             label="Status"

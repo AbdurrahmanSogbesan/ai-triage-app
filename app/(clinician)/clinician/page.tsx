@@ -1,8 +1,7 @@
-import { ME_CLINICIAN, getCasesAssignedTo } from "@/lib/data/mock-cases";
-
 import { ClinicianDashboard } from "./_components/clinician-dashboard";
+import { getAssignedCases } from "./_components/actions";
 
-export default function ClinicianDashboardPage() {
-  const cases = getCasesAssignedTo(ME_CLINICIAN.name);
+export default async function ClinicianDashboardPage() {
+  const cases = await getAssignedCases();
   return <ClinicianDashboard cases={cases} />;
 }

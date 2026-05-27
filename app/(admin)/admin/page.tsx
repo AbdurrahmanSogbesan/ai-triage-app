@@ -1,6 +1,10 @@
 import { AdminQueue } from "./_components/admin-queue";
-import { CASES, CLINICIANS } from "@/lib/data/mock-cases";
+import { getAdminQueue, getClinicianRoster } from "./_components/actions";
 
-export default function AdminQueuePage() {
-  return <AdminQueue cases={CASES} clinicians={CLINICIANS} />;
+export default async function AdminQueuePage() {
+  const [cases, clinicians] = await Promise.all([
+    getAdminQueue(),
+    getClinicianRoster(),
+  ]);
+  return <AdminQueue cases={cases} clinicians={clinicians} />;
 }

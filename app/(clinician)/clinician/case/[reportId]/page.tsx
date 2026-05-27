@@ -1,11 +1,19 @@
 import { notFound } from "next/navigation";
 import { differenceInMinutes, differenceInYears, parseISO } from "date-fns";
 
-import type { SoapReport } from "@/lib/ai/schemas";
+import type { RefereeOutput, SoapReport } from "@/lib/ai/schemas";
 import { createClient } from "@/lib/supabase/server";
-import type { Case, Severity, SessionStatus, TranscriptTurn } from "@/lib/types";
+import type {
+  Case,
+  Severity,
+  SessionStatus,
+  TranscriptTurn,
+} from "@/lib/types";
 
-import { CaseDetailView } from "./_components/case-detail-view";
+import {
+  CaseDetailView,
+  type AuditEntry,
+} from "./_components/case-detail-view";
 
 type StoredUiMessage = {
   role?: "user" | "assistant" | "system";
@@ -48,12 +56,11 @@ export default async function ClinicianCasePage({
   const supabase = await createClient();
 
   // RLS scopes consultation_reports to the assigned clinician (or admin).
-  // Unassigned reports return no row → notFound. Until the admin assignment
-  // flow lands, assign manually via SQL for testing.
+  // Unassigned reports return no row → notFound.
   const { data: report } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, confidence_score, session_started_at, soap_report",
+      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, confidence_score, session_started_at, session_ended_at, reviewed_at, soap_report, referee_flags",
     )
     .eq("id", reportId)
     .maybeSingle();
@@ -69,7 +76,7 @@ export default async function ClinicianCasePage({
       supabase
         .from("vital_records")
         .select(
-          "blood_pressure_systolic, blood_pressure_diastolic, temperature_celsius, weight_kg",
+          "blood_pressure_systolic, blood_pressure_diastolic, temperature_celsius, weight_kg, recorded_at",
         )
         .eq("id", report.vital_record_id)
         .maybeSingle(),
@@ -88,10 +95,10 @@ export default async function ClinicianCasePage({
   const key = process.env.TRANSCRIPT_ENCRYPTION_KEY;
   let transcript: TranscriptTurn[] = [];
   if (key) {
-    const { data: decrypted } = await supabase.rpc(
-      "get_decrypted_transcript",
-      { report_id: reportId, key },
-    );
+    const { data: decrypted } = await supabase.rpc("get_decrypted_transcript", {
+      report_id: reportId,
+      key,
+    });
     if (typeof decrypted === "string") {
       transcript = decodeTranscript(decrypted);
     }
@@ -132,6 +139,7 @@ export default async function ClinicianCasePage({
       bpDia: vital.blood_pressure_diastolic,
       tempC: Number(vital.temperature_celsius),
       weightKg: Number(vital.weight_kg),
+      recordedAt: vital.recorded_at,
     },
     assignedTo: assignedClinicianName,
     status: report.status as SessionStatus,
@@ -153,7 +161,54 @@ export default async function ClinicianCasePage({
     );
   }
 
+  // Build the audit trail from real DB timestamps. Order: newest first.
+  // We include only events we genuinely know happened — entries with no
+  // timestamp (e.g. assignment, which has no audit log column) are omitted
+  // rather than shown with a fabricated time.
+  const referee = report.referee_flags as RefereeOutput | null;
+  const audit: AuditEntry[] = [];
+  if (report.reviewed_at && assignedClinicianName) {
+    audit.push({
+      at: report.reviewed_at,
+      actor: assignedClinicianName,
+      what: "Reviewed and marked complete",
+    });
+  }
+  if (referee?.evaluated_at && referee.model) {
+    audit.push({
+      at: referee.evaluated_at,
+      actor: referee.model,
+      what: `Referee scored · confidence ${referee.confidence_score}`,
+    });
+  }
+  if (soap.metadata.generated_at && soap.metadata.model) {
+    audit.push({
+      at: soap.metadata.generated_at,
+      actor: soap.metadata.model,
+      what: "Generated SOAP report",
+    });
+  }
+  if (report.session_ended_at) {
+    audit.push({
+      at: report.session_ended_at,
+      actor: "Patient",
+      what: "Submitted interview",
+    });
+  }
+  if (report.session_started_at) {
+    audit.push({
+      at: report.session_started_at,
+      actor: "Patient",
+      what: "Started interview",
+    });
+  }
+
   return (
-    <CaseDetailView caseRow={caseRow} soap={soap} transcript={transcript} />
+    <CaseDetailView
+      caseRow={caseRow}
+      soap={soap}
+      transcript={transcript}
+      audit={audit}
+    />
   );
 }

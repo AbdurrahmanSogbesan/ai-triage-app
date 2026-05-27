@@ -11,8 +11,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+
+import { commitCaseReviewAction } from "@/app/(clinician)/clinician/_components/actions";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +26,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, shortReportId } from "@/lib/utils";
 import {
   SEVERITY_META,
   type Case,
@@ -31,6 +34,14 @@ import {
   type SoapReport,
   type TranscriptTurn,
 } from "@/lib/types";
+import {
+  formatDistanceToNow,
+  parseISO,
+  differenceInMinutes,
+  differenceInHours,
+  differenceInDays,
+  format,
+} from "date-fns";
 import { SeverityBadge } from "@/components/clinical/severity-badge";
 import { StatusBadge } from "@/components/clinical/status-badge";
 import { ConfidenceBand } from "@/components/clinical/confidence-indicator";
@@ -64,10 +75,17 @@ const TRIGGER_MOBILE = cn(
   "flex-1 gap-1.5 px-3 py-2.5 text-[13px] font-medium",
 );
 
+export type AuditEntry = {
+  at: string | null;
+  actor: string;
+  what: string;
+};
+
 type Props = {
   caseRow: Case;
   soap: SoapReport;
   transcript: TranscriptTurn[];
+  audit: AuditEntry[];
 };
 
 function getInitials(fullName: string) {
@@ -79,8 +97,10 @@ function getInitials(fullName: string) {
     .toUpperCase();
 }
 
-export function CaseDetailView({ caseRow, soap, transcript }: Props) {
+export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
+  const router = useRouter();
   const initials = getInitials(caseRow.name);
+  const displayId = shortReportId(caseRow.id);
 
   // Hoisted override state — shared between OverridePanel and the mobile
   // sticky commit bar so both reflect the same level/reason at once.
@@ -90,7 +110,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [committed, setCommitted] = useState(false);
+  const [committed, setCommitted] = useState(caseRow.status === "completed");
 
   const isOverride = overrideLevel !== caseRow.severity;
 
@@ -113,14 +133,22 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
     }
     setReasonError(null);
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
+    const result = await commitCaseReviewAction(caseRow.id, overrideLevel);
     setIsSubmitting(false);
+    if ("error" in result) {
+      toast.error("Could not save review", { description: result.error });
+      return;
+    }
     setCommitted(true);
     toast.success(isOverride ? "Override submitted" : "Case marked complete", {
       description: isOverride
         ? "Your decision has been logged and the patient is being called."
         : "Patient is being called.",
     });
+    // Re-fetch the page's server data so the case header reflects the new
+    // status (and the dashboard count drops by one when the clinician
+    // navigates back).
+    router.refresh();
   };
 
   return (
@@ -136,7 +164,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
             <ArrowLeft className="h-[18px] w-[18px]" />
           </Link>
           <div className="leading-tight">
-            <div className="text-[13px] font-semibold">Case {caseRow.id}</div>
+            <div className="text-[13px] font-semibold">Case {displayId}</div>
             <div className="text-[11px] text-muted-foreground">
               Active cases
             </div>
@@ -158,7 +186,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
                 </div>
                 <div className="mt-0.5 text-[12px] text-muted-foreground">
                   {caseRow.age}, {caseRow.sex === "M" ? "Male" : "Female"} ·{" "}
-                  <span className="font-mono">{caseRow.id}</span>
+                  <span className="font-mono">{displayId}</span>
                 </div>
               </div>
             </div>
@@ -184,7 +212,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
             </h2>
             <VitalsStrip
               vitals={caseRow.vitals}
-              takenAgo="2m"
+              takenAgo={formatShort(caseRow.vitals.recordedAt ?? null)}
               className="grid-cols-2"
             />
           </section>
@@ -284,7 +312,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
             Active cases
           </Link>
           <span>/</span>
-          <span className="font-medium text-foreground">{caseRow.id}</span>
+          <span className="font-medium text-foreground">{displayId}</span>
         </nav>
 
         <Card className="gap-0 py-0">
@@ -302,7 +330,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
                     · {caseRow.age}, {caseRow.sex === "M" ? "Male" : "Female"}
                   </span>
                   <span className="ml-1 font-mono text-[12px] text-muted-foreground/70">
-                    {caseRow.id}
+                    {displayId}
                   </span>
                 </div>
                 <p className="mt-1.5 max-w-[600px] text-[13.5px] leading-relaxed text-foreground/80">
@@ -327,7 +355,10 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Vitals on arrival
             </h2>
-            <VitalsStrip vitals={caseRow.vitals} takenAgo="2m" />
+            <VitalsStrip
+              vitals={caseRow.vitals}
+              takenAgo={formatShort(caseRow.vitals.recordedAt ?? null)}
+            />
           </CardContent>
         </Card>
 
@@ -375,7 +406,7 @@ export function CaseDetailView({ caseRow, soap, transcript }: Props) {
                 isOverride={isOverride}
                 isSubmitting={isSubmitting}
                 onSubmit={handleSubmit}
-                sideRail={<OverrideSideRail assignedTo={caseRow.assignedTo} />}
+                sideRail={<OverrideSideRail audit={audit} />}
               />
             )}
           </TabsContent>
@@ -394,15 +425,47 @@ function CompletedCard({ reportId }: { reportId: string }) {
           <span className="text-sm font-semibold">Case completed</span>
         </div>
         <p className="text-[13px] text-muted-foreground">
-          Report <span className="font-mono">{reportId}</span> marked complete.
-          The patient queue has been updated.
+          Report <span className="font-mono">{shortReportId(reportId)}</span>{" "}
+          marked complete. The patient queue has been updated.
         </p>
       </CardContent>
     </Card>
   );
 }
 
-function OverrideSideRail({ assignedTo }: { assignedTo: string | null }) {
+function formatRelative(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return formatDistanceToNow(parseISO(iso), { addSuffix: true });
+  } catch {
+    return iso;
+  }
+}
+
+// Compact time label for tight UI spots (no `ago` suffix):
+// - <1 minute => "now"
+// - minutes => "Nm"
+// - hours => "Nh"
+// - days => "Nd"
+// - >=7 days => short date like "May 2"
+function formatShort(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    const date = parseISO(iso);
+    const mins = differenceInMinutes(new Date(), date);
+    if (mins < 1) return "now";
+    if (mins < 60) return `${mins}m`;
+    const hrs = differenceInHours(new Date(), date);
+    if (hrs < 24) return `${hrs}h`;
+    const days = differenceInDays(new Date(), date);
+    if (days < 7) return `${days}d`;
+    return format(date, "MMM d");
+  } catch {
+    return iso;
+  }
+}
+
+function OverrideSideRail({ audit }: { audit: AuditEntry[] }) {
   return (
     <aside className="flex flex-col gap-4">
       <Card>
@@ -424,43 +487,27 @@ function OverrideSideRail({ assignedTo }: { assignedTo: string | null }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="px-5 py-5">
-          <h3 className="mb-3 text-[13px] font-semibold">Audit trail</h3>
-          <ol className="relative flex flex-col gap-3 pl-4 before:absolute before:bottom-1.5 before:left-[5px] before:top-1.5 before:w-px before:bg-border">
-            {[
-              { t: "Now", who: "—", what: "Reviewing case" },
-              {
-                t: "2m ago",
-                who: "AI Triage v0.4.2",
-                what: "Generated SOAP report",
-              },
-              {
-                t: "6m ago",
-                who: "AI Triage v0.4.2",
-                what: "Completed interview · 5 turns",
-              },
-              { t: "8m ago", who: "Patient", what: "Recorded vitals" },
-              {
-                t: "12m ago",
-                who: "Sade Bakare",
-                what: `Assigned to ${assignedTo ?? "—"}`,
-              },
-            ].map((a, i) => (
-              <li key={i} className="relative">
-                <span
-                  className="absolute top-1 -left-[15px] h-2.5 w-2.5 rounded-full border-2 border-border bg-white"
-                  aria-hidden="true"
-                />
-                <div className="text-[12px] font-medium">{a.what}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {a.t} · {a.who}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+      {audit.length > 0 && (
+        <Card>
+          <CardContent className="px-5 py-5">
+            <h3 className="mb-3 text-[13px] font-semibold">Audit trail</h3>
+            <ol className="relative flex flex-col gap-3 pl-4 before:absolute before:bottom-1.5 before:left-[5px] before:top-1.5 before:w-px before:bg-border">
+              {audit.map((entry, i) => (
+                <li key={i} className="relative">
+                  <span
+                    className="absolute top-1 -left-[15px] h-2.5 w-2.5 rounded-full border-2 border-border bg-white"
+                    aria-hidden="true"
+                  />
+                  <div className="text-[12px] font-medium">{entry.what}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    {formatRelative(entry.at)} · {entry.actor}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
     </aside>
   );
 }

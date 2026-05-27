@@ -1,7 +1,9 @@
 "use client";
 
+import { format, parseISO } from "date-fns";
 import { AlertTriangle, Clock, RefreshCw, UserPlus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,8 +25,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/clinical/status-badge";
-import { cn } from "@/lib/utils";
+import { cn, shortReportId } from "@/lib/utils";
 import type { Case, Clinician } from "@/lib/types";
+
+import { assignCaseAction } from "./actions";
 
 type Props = {
   cases: Case[];
@@ -63,7 +67,17 @@ function drInitials(name: string) {
     .toUpperCase();
 }
 
+function formatArrivedAt(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d · HH:mm");
+  } catch {
+    return iso;
+  }
+}
+
 export function AdminQueue({ cases, clinicians }: Props) {
+  const router = useRouter();
+  const [isAssigning, startAssignTransition] = useTransition();
   const [queue, setQueue] = useState<QueueRow[]>(() =>
     cases.map((c) => ({
       id: c.id,
@@ -75,21 +89,29 @@ export function AdminQueue({ cases, clinicians }: Props) {
       waitedMin: c.waitedMin,
       assignedTo: c.assignedTo,
       status: c.status,
-    }))
+    })),
   );
   const [assigning, setAssigning] = useState<QueueRow | null>(null);
   const [bucket, setBucket] = useState<Bucket>("all");
+  const [isRefreshing, startRefreshTransition] = useTransition();
+
+  const handleRefresh = () => {
+    startRefreshTransition(() => {
+      router.refresh();
+    });
+  };
 
   const stats = useMemo(
     () => ({
       total: queue.length,
       unassigned: queue.filter((q) => !q.assignedTo).length,
       withClinician: queue.filter(
-        (q) => q.assignedTo && q.status !== "awaiting_referee"
+        (q) => q.assignedTo && q.status !== "awaiting_referee",
       ).length,
-      pendingReferee: queue.filter((q) => q.status === "awaiting_referee").length,
+      pendingReferee: queue.filter((q) => q.status === "awaiting_referee")
+        .length,
     }),
-    [queue]
+    [queue],
   );
 
   const filtered = useMemo(() => {
@@ -98,21 +120,28 @@ export function AdminQueue({ cases, clinicians }: Props) {
     return queue;
   }, [queue, bucket]);
 
-  const handleAssign = (clinicianName: string) => {
+  const handleAssign = (clinicianId: string, clinicianName: string) => {
     if (!assigning) return;
-    const patientName = assigning.name;
-    setQueue((rows) =>
-      rows.map((r) =>
-        r.id === assigning.id
-          ? { ...r, assignedTo: clinicianName, status: "awaiting_clinician" }
-          : r
-      )
-    );
-    setAssigning(null);
-    toast.success(`Assigned to ${clinicianName}`, {
-      description: `${patientName} has been routed. ${
-        clinicianName.split(" ")[1] ?? clinicianName
-      } has been notified.`,
+    const target = assigning;
+    startAssignTransition(async () => {
+      const result = await assignCaseAction(target.id, clinicianId);
+      if ("error" in result) {
+        toast.error("Could not assign", { description: result.error });
+        return;
+      }
+      // Optimistic local update so the UI reflects the change immediately;
+      // router.refresh() then re-fetches from the server so clinician load
+      // counts (in the right rail) reflect the new assignment too.
+      setQueue((rows) =>
+        rows.map((r) =>
+          r.id === target.id ? { ...r, assignedTo: clinicianName } : r,
+        ),
+      );
+      setAssigning(null);
+      toast.success(`Assigned to ${clinicianName}`, {
+        description: `${target.name} has been routed.`,
+      });
+      router.refresh();
     });
   };
 
@@ -127,9 +156,17 @@ export function AdminQueue({ cases, clinicians }: Props) {
             Manage patient flow and assign completed triages to clinicians.
           </p>
         </div>
-        <Button variant="outline" size="sm" className="h-9 w-fit gap-1.5">
-          <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 w-fit gap-1.5"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw
+            className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+          />
+          {isRefreshing ? "Refreshing…" : "Refresh"}
         </Button>
       </header>
 
@@ -182,7 +219,9 @@ export function AdminQueue({ cases, clinicians }: Props) {
               segmented bucket switcher above instead. */}
           <div className="hidden items-center justify-between border-b border-border px-5 py-3 md:flex">
             <div className="flex items-center gap-2">
-              <h2 className="text-[14px] font-semibold">Today&apos;s patients</h2>
+              <h2 className="text-[14px] font-semibold">
+                Today&apos;s patients
+              </h2>
               <span className="rounded-full bg-muted px-2 py-0.5 text-[11.5px] font-medium tabular-nums text-foreground/70">
                 {queue.length}
               </span>
@@ -236,10 +275,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                   const longWait = row.waitedMin > 60;
                   const veryLongWait = row.waitedMin > 90;
                   return (
-                    <TableRow
-                      key={row.id}
-                      className="hover:bg-muted/30"
-                    >
+                    <TableRow key={row.id} className="hover:bg-muted/30">
                       <TableCell className="py-3 pl-5 pr-4">
                         <div className="flex items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11.5px] font-medium">
@@ -251,13 +287,15 @@ export function AdminQueue({ cases, clinicians }: Props) {
                             </span>
                             <span className="text-[11.5px] text-muted-foreground">
                               {row.age}, {row.sex === "M" ? "Male" : "Female"} ·{" "}
-                              <span className="font-mono">{row.patientId}</span>
+                              <span className="font-mono">
+                                {shortReportId(row.id)}
+                              </span>
                             </span>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 font-mono text-[13px] tabular-nums text-foreground/80">
-                        {row.arrivedAt}
+                      <TableCell className="px-4 py-3 text-[13px] tabular-nums text-foreground/80">
+                        {formatArrivedAt(row.arrivedAt)}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -268,7 +306,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                                 ? "text-red-700"
                                 : longWait
                                   ? "text-amber-700"
-                                  : "text-foreground/80"
+                                  : "text-foreground/80",
                             )}
                           >
                             {row.waitedMin}m
@@ -294,7 +332,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                             )}
                           </div>
                         ) : (
-                          <StatusBadge status="awaiting_clinician" />
+                          <StatusBadge status={row.status} />
                         )}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-right">
@@ -307,10 +345,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                             Reassign
                           </Button>
                         ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => setAssigning(row)}
-                          >
+                          <Button size="sm" onClick={() => setAssigning(row)}>
                             Assign
                           </Button>
                         )}
@@ -338,12 +373,14 @@ export function AdminQueue({ cases, clinicians }: Props) {
                         </p>
                         <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                           {row.age}, {row.sex === "M" ? "Male" : "Female"} ·{" "}
-                          <span className="font-mono">{row.patientId}</span>
+                          <span className="font-mono">
+                            {shortReportId(row.id)}
+                          </span>
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
                             <Clock className="h-2.5 w-2.5" />
-                            {row.arrivedAt}
+                            {formatArrivedAt(row.arrivedAt)}
                           </span>
                           <span
                             className={cn(
@@ -352,7 +389,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                                 ? "text-red-700"
                                 : longWait
                                   ? "text-amber-700"
-                                  : "text-foreground/80"
+                                  : "text-foreground/80",
                             )}
                           >
                             {longWait && (
@@ -374,7 +411,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                           </span>
                         </div>
                       ) : (
-                        <StatusBadge status="awaiting_clinician" />
+                        <StatusBadge status={row.status} />
                       )}
                       {row.assignedTo ? (
                         <Button
@@ -385,10 +422,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
                           Reassign
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => setAssigning(row)}
-                        >
+                        <Button size="sm" onClick={() => setAssigning(row)}>
                           Assign
                         </Button>
                       )}
@@ -412,6 +446,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
         assigning={assigning}
         onCancel={() => setAssigning(null)}
         onAssign={handleAssign}
+        isPending={isAssigning}
       />
     </div>
   );
@@ -438,7 +473,7 @@ function SegmentedBucket({
         "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-white text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {label}
@@ -447,7 +482,7 @@ function SegmentedBucket({
           "rounded-full px-1.5 py-0.5 text-[11px] tabular-nums",
           active
             ? "bg-muted text-foreground/80"
-            : "bg-muted-foreground/15 text-muted-foreground"
+            : "bg-muted-foreground/15 text-muted-foreground",
         )}
       >
         {count}
@@ -474,7 +509,7 @@ function BucketBtn({
         "rounded px-2 py-1 text-[12px] font-medium transition-colors",
         active
           ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
       {children}
@@ -507,7 +542,7 @@ function StatCard({
         <p
           className={cn(
             "mt-1.5 font-mono text-[28px] font-semibold leading-none tracking-tight tabular-nums",
-            toneText[tone]
+            toneText[tone],
           )}
         >
           {value}
@@ -529,14 +564,20 @@ function ClinicianLoadCard({ clinicians }: { clinicians: Clinician[] }) {
           {clinicians.map((c) => {
             const pct = Math.min(100, Math.round((c.load / c.capacity) * 100));
             const tone =
-              pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-primary";
+              pct >= 90
+                ? "bg-red-500"
+                : pct >= 75
+                  ? "bg-amber-500"
+                  : "bg-primary";
             return (
               <li key={c.id}>
                 <div className="mb-1.5 flex items-baseline justify-between">
                   <span className="text-[12.5px] font-medium">{c.name}</span>
                   <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
                     {c.load}
-                    <span className="text-muted-foreground/70">/{c.capacity}</span>
+                    <span className="text-muted-foreground/70">
+                      /{c.capacity}
+                    </span>
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -589,24 +630,27 @@ function AssignDialog({
   clinicians,
   onAssign,
   onCancel,
+  isPending,
 }: {
   assigning: QueueRow | null;
   clinicians: Clinician[];
-  onAssign: (name: string) => void;
+  onAssign: (clinicianId: string, clinicianName: string) => void;
   onCancel: () => void;
+  isPending: boolean;
 }) {
   const lightest = useMemo(() => {
     return [...clinicians].sort(
-      (a, b) => a.load / a.capacity - b.load / b.capacity
+      (a, b) => a.load / a.capacity - b.load / b.capacity,
     )[0];
   }, [clinicians]);
-  const [selected, setSelected] = useState<string | undefined>(lightest?.name);
+  const [selected, setSelected] = useState<string | undefined>(lightest?.id);
+  const selectedClinician = clinicians.find((c) => c.id === selected);
 
   return (
     <Dialog
       open={assigning !== null}
       onOpenChange={(o) => {
-        if (!o) onCancel();
+        if (!o && !isPending) onCancel();
       }}
     >
       <DialogContent className="max-w-md">
@@ -626,20 +670,24 @@ function AssignDialog({
           <ul className="flex flex-col gap-1.5">
             {clinicians.map((c) => {
               const pct = Math.round((c.load / c.capacity) * 100);
-              const on = selected === c.name;
+              const on = selected === c.id;
               const tone =
-                pct >= 90 ? "bg-red-500" : pct >= 75 ? "bg-amber-500" : "bg-primary";
+                pct >= 90
+                  ? "bg-red-500"
+                  : pct >= 75
+                    ? "bg-amber-500"
+                    : "bg-primary";
               return (
                 <li key={c.id}>
                   <button
                     type="button"
-                    onClick={() => setSelected(c.name)}
+                    onClick={() => setSelected(c.id)}
                     aria-pressed={on}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
                       on
                         ? "border-primary bg-primary/5"
-                        : "border-border hover:border-foreground/20 hover:bg-muted/60"
+                        : "border-border hover:border-foreground/20 hover:bg-muted/60",
                     )}
                   >
                     <span
@@ -647,7 +695,7 @@ function AssignDialog({
                         "h-4 w-4 shrink-0 rounded-full border-2",
                         on
                           ? "border-primary bg-primary"
-                          : "border-border bg-white"
+                          : "border-border bg-white",
                       )}
                       aria-hidden="true"
                     />
@@ -674,14 +722,17 @@ function AssignDialog({
           </ul>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={isPending}>
             Cancel
           </Button>
           <Button
-            onClick={() => selected && onAssign(selected)}
-            disabled={!selected}
+            onClick={() =>
+              selectedClinician &&
+              onAssign(selectedClinician.id, selectedClinician.name)
+            }
+            disabled={!selectedClinician || isPending}
           >
-            Assign case
+            {isPending ? "Assigning…" : "Assign case"}
           </Button>
         </DialogFooter>
       </DialogContent>

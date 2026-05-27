@@ -14,6 +14,7 @@ export type Vitals = {
   bpDia: number;
   tempC: number;
   weightKg: number;
+  recordedAt?: string;
 };
 
 export type Case = {
@@ -107,12 +108,15 @@ export const SEVERITY_META: Record<
 
 export const STATUS_META: Record<
   SessionStatus,
-  { label: string; tone: "neutral" | "info" | "warn" | "success" | "danger" }
+  {
+    label: string;
+    tone: "neutral" | "info" | "warn" | "review" | "success" | "danger";
+  }
 > = {
   in_progress: { label: "In progress", tone: "info" },
   abandoned: { label: "Abandoned", tone: "danger" },
   awaiting_referee: { label: "Verifying", tone: "warn" },
-  awaiting_clinician: { label: "For review", tone: "warn" },
+  awaiting_clinician: { label: "In review", tone: "review" },
   completed: { label: "Completed", tone: "success" },
 };
 
@@ -121,7 +125,9 @@ export function confidenceBand(score: number): {
   label: string;
   tone: "success" | "warn" | "danger";
 } {
-  if (score >= 85) return { band: "high", label: "High confidence", tone: "success" };
-  if (score >= 75) return { band: "verify", label: "Verify carefully", tone: "warn" };
+  if (score >= 85)
+    return { band: "high", label: "High confidence", tone: "success" };
+  if (score >= 75)
+    return { band: "verify", label: "Verify carefully", tone: "warn" };
   return { band: "manual", label: "Manual review recommended", tone: "danger" };
 }

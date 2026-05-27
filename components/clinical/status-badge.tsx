@@ -5,6 +5,7 @@ const TONE_CLASSES = {
   neutral: "bg-muted text-muted-foreground",
   info: "bg-blue-50 text-blue-700",
   warn: "bg-amber-50 text-amber-700",
+  review: "bg-violet-50 text-violet-700",
   success: "bg-emerald-50 text-emerald-700",
   danger: "bg-red-50 text-red-700",
 } as const;

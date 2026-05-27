@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { EmergencyBanner } from "@/components/clinical/emergency-banner";
 import { StatusBadge } from "@/components/clinical/status-badge";
+import { shortPatientId } from "@/lib/utils";
 
 import {
   getHasVitalsToday,
@@ -39,10 +40,6 @@ const CLINIC_NAME = "Sunshine Medical";
 
 function formatSessionDate(iso: string): string {
   return format(parseISO(iso), "MMM d, yyyy");
-}
-
-function shortPatientId(uuid: string): string {
-  return `P-${uuid.slice(0, 4).toUpperCase()}`;
 }
 
 function describeAgeSex(profile: PatientProfile): string {
