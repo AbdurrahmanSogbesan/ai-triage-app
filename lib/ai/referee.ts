@@ -40,7 +40,7 @@ export type RunRefereeInput = {
 
 /**
  * Stage 3 of the AI pipeline. Independently audits the SOAP report against
- * the source transcript using a different model (Groq Llama 3.3 70B) so the
+ * the source transcript using a different model (Groq openai/gpt-oss-120b) so the
  * critique is genuinely independent of the Gemini-generated SOAP. Output
  * shape is the auditor's confidence score, structured checks, and concrete
  * defect flags. Retries once on failure with tighter temperature.
