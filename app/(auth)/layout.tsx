@@ -9,7 +9,7 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
-      <header className="px-6 py-5">
+      <header className="px-4 py-5 sm:px-6">
         <Link href="/login" className="inline-flex items-center gap-2.5">
           <BrandMark size={32} />
           <div className="leading-tight">
@@ -22,7 +22,7 @@ export default function AuthLayout({
           </div>
         </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center px-6 pb-12">
+      <main className="flex flex-1 items-center justify-center px-4 pb-10 sm:px-6 sm:pb-12">
         {children}
       </main>
     </div>

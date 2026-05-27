@@ -8,6 +8,11 @@ type Field = { label: string; value: string };
 type Props = {
   user: { name: string; subtitle: string };
   fields: Field[];
+  /**
+   * Optional content rendered below the identity card. Used by the patient
+   * profile to slot in the clinical-baseline editor.
+   */
+  children?: React.ReactNode;
 };
 
 function initials(name: string) {
@@ -19,7 +24,7 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export function ProfileScreen({ user, fields }: Props) {
+export function ProfileScreen({ user, fields, children }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl px-5 py-6 md:px-8 md:py-7">
       <header className="flex flex-col gap-1">
@@ -61,6 +66,7 @@ export function ProfileScreen({ user, fields }: Props) {
           ))}
         </CardContent>
       </Card>
+      {children}
     </div>
   );
 }

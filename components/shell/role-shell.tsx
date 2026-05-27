@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,8 +9,9 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 
+import { signOut } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/types";
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -66,9 +67,9 @@ function isActive(pathname: string, item: NavItem, roleRoot: string): boolean {
 }
 
 export function RoleShell({ role, user, children }: Props) {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
+  const [, startSignOut] = useTransition();
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     getCollapsedSnapshot,
@@ -87,9 +88,9 @@ export function RoleShell({ role, user, children }: Props) {
   const roleRoot = `/${role}`;
 
   const handleSignOut = () => {
-    document.cookie = "mock-role=; Path=/; Max-Age=0";
-    router.push("/login");
-    router.refresh();
+    startSignOut(async () => {
+      await signOut();
+    });
   };
 
   return (

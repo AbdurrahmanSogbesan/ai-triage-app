@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { getMockRole } from "@/lib/auth/session";
-import { roleRoot } from "@/lib/auth/mock";
+import { roleRoot } from "@/lib/auth/roles";
+import { getSessionProfile } from "@/lib/auth/session";
 
 export default async function HomePage() {
-  const role = await getMockRole();
-  redirect(role ? roleRoot(role) : "/login");
+  const session = await getSessionProfile();
+  redirect(session ? roleRoot(session.profile.role) : "/login");
 }

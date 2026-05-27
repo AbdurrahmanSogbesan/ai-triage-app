@@ -1,20 +1,33 @@
-import { ProfileScreen } from "@/components/clinical/profile-screen";
-import { ME_ADMIN } from "@/lib/data/mock-cases";
+import { redirect } from "next/navigation";
 
-export default function AdminProfilePage() {
+import { ProfileScreen } from "@/components/clinical/profile-screen";
+import { getSessionProfile } from "@/lib/auth/session";
+
+export default async function AdminProfilePage() {
+  const session = await getSessionProfile();
+  if (!session) redirect("/login");
+  const { profile } = session;
+
   const fields = [
-    { label: "Email", value: ME_ADMIN.email },
-    { label: "Phone", value: ME_ADMIN.phone },
-    { label: "Role", value: ME_ADMIN.role },
-    { label: "Department", value: ME_ADMIN.department },
-    { label: "Joined", value: ME_ADMIN.joined },
+    { label: "Email", value: profile.email },
+    { label: "Phone", value: profile.phone ?? "—" },
+    { label: "Role", value: "Administrator" },
+    { label: "Department", value: profile.department ?? "—" },
+    {
+      label: "Joined",
+      value: new Date(profile.created_at).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    },
   ];
 
   return (
     <ProfileScreen
       user={{
-        name: ME_ADMIN.name,
-        subtitle: ME_ADMIN.role,
+        name: `${profile.first_name} ${profile.last_name}`,
+        subtitle: profile.department ?? "Administrator",
       }}
       fields={fields}
     />

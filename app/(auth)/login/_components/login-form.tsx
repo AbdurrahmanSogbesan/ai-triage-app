@@ -4,8 +4,9 @@ import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import Link from "next/link";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
-import { mockLogin } from "../../actions";
+import { login } from "../../actions";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Field,
@@ -15,6 +16,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
@@ -32,7 +34,10 @@ export function LoginForm() {
 
   const onSubmit = (values: LoginInput) => {
     startTransition(async () => {
-      await mockLogin(values.email);
+      const result = await login(values);
+      if (result?.error) {
+        toast.error("Couldn't sign in", { description: result.error });
+      }
     });
   };
 
@@ -65,9 +70,8 @@ export function LoginForm() {
               <Field>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <FieldContent>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="current-password"
                     placeholder="Enter password"
                     aria-invalid={errors.password ? true : undefined}

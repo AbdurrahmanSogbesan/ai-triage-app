@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { mockRegister } from "../../actions";
+import { register as registerAction } from "../../actions";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Field,
@@ -16,6 +16,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -58,12 +59,23 @@ export function RegisterForm() {
     },
   });
 
-  const onSubmit = () => {
+  const onSubmit = (values: RegisterInput) => {
     startTransition(async () => {
       toast.success("Welcome to Sunshine Medical", {
-        description: "Your account is ready. You can sign in now.",
+        description: "Your account is ready.",
       });
-      await mockRegister();
+      const result = await registerAction({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        dob: values.dob,
+        sex: values.sex,
+        phone: values.phone,
+        email: values.email,
+        password: values.password,
+      });
+      if (result?.error) {
+        toast.error("Couldn't create account", { description: result.error });
+      }
     });
   };
 
@@ -78,7 +90,7 @@ export function RegisterForm() {
           <div className="flex flex-col gap-5">
             <SectionHeader title="Personal details" />
             <FieldGroup>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="firstName">First name</FieldLabel>
                   <FieldContent>
@@ -110,7 +122,7 @@ export function RegisterForm() {
                   </FieldContent>
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="dob">Date of birth</FieldLabel>
                   <FieldContent>
@@ -133,8 +145,11 @@ export function RegisterForm() {
                       name="sex"
                       render={({ field }) => (
                         <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
+                          // Coerce undefined → null so the Select is
+                          // controlled from first render. The schema still
+                          // requires "M" or "F" at submit.
+                          value={field.value ?? null}
+                          onValueChange={(v) => v && field.onChange(v)}
                         >
                           <SelectTrigger
                             aria-invalid={errors.sex ? true : undefined}
@@ -210,9 +225,8 @@ export function RegisterForm() {
               <Field>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <FieldContent>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="new-password"
                     aria-invalid={errors.password ? true : undefined}
                     {...register("password")}
@@ -228,9 +242,8 @@ export function RegisterForm() {
                   Confirm password
                 </FieldLabel>
                 <FieldContent>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
                     autoComplete="new-password"
                     aria-invalid={errors.confirmPassword ? true : undefined}
                     {...register("confirmPassword")}

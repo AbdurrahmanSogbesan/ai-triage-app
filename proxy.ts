@@ -53,16 +53,32 @@ export async function proxy(request: NextRequest) {
   const onAuthPath = AUTH_PATHS.has(pathname);
 
   if (!user && onProtected) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectWithCookies(new URL("/login", request.url), response);
   }
 
   if (user && onAuthPath) {
     // Defer role resolution to `/` (a server component that reads the profile
     // and redirects to /patient | /clinician | /admin). Keeps the proxy DB-free.
-    return NextResponse.redirect(new URL("/", request.url));
+    return redirectWithCookies(new URL("/", request.url), response);
   }
 
   return response;
+}
+
+/**
+ * Build a redirect response that carries over any cookies the Supabase
+ * client just refreshed onto `response.cookies`. Without this, returning a
+ * fresh NextResponse.redirect() drops the rotated session tokens — the
+ * browser keeps the old (now invalidated) refresh token and the next
+ * request's auth check fails, causing redirect loops. This is the gotcha
+ * called out in the @supabase/ssr middleware docs.
+ */
+function redirectWithCookies(url: URL, response: NextResponse) {
+  const out = NextResponse.redirect(url);
+  for (const cookie of response.cookies.getAll()) {
+    out.cookies.set(cookie);
+  }
+  return out;
 }
 
 export const config = {

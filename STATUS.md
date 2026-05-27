@@ -1,117 +1,104 @@
 # Project Status
 
-Last updated: 2026-05-20
+Last updated: 2026-05-27 (post-validation prep)
 
 ## Current phase
 
-**Phase 1 — UI Foundation (UI-only).** Every route from `BUILD_SPEC.md` §8.1 renders its real visual content. No backend, no LLM, no DB, no real auth.
+**Phase 2 — Supabase Foundation + Real Auth + Profiles.** The full DB schema (with RLS, encryption function, admin queue view) is applied to the live Supabase project; real Supabase Auth replaces the mock cookie; the three profile surfaces and sidebar user displays read from the real `profiles` table. Clinical surfaces (dashboards, case detail, interview) intentionally still render Phase 1 mock data — they get wired in Phase 3 along with the intake flow.
 
-## What's implemented
+## What's new in Phase 2
 
-### Foundation
+### Supabase
 
-- Next.js 16 (App Router) + Tailwind 4 (CSS-first `@theme`) + shadcn/ui (`base-nova` preset, Base UI primitives under the hood)
-- Inter (sans) + JetBrains Mono (mono via tabular numerals on vitals, IDs, scores)
-- Brand tokens: emerald-700 primary, `#FAFAF9` background, the five MTS severity hex tokens (+ bg variants)
-- One light theme only — dark-mode scaffolding stripped from the shadcn defaults
-- Mock auth via `mock-role` cookie, role-gated by `proxy.ts` (renamed from `middleware.ts` in Next 16)
-- Forms via `react-hook-form` + Zod 4, wired through `standardSchemaResolver` (Standard Schema spec — survives Zod minor bumps without the version-pinned resolver overload mismatch)
-- One responsive component per route. The role sidebar is a single component that renders fixed on `md:` and a `Sheet` drawer below.
-- `Sonner` toaster mounted globally in `app/layout.tsx` with `position="bottom-right"`, `richColors`, `closeButton`
+- **DB schema applied** to project `ybtzcgonhepcwdszndsa`. Three migrations:
+  - [`20260526221158_initial_schema.sql`](supabase/migrations/20260526221158_initial_schema.sql) — `profiles`, `vital_records`, `consultation_reports`; enums (`user_role`, `triage_level`, `session_status`); RLS policies on every table; `pgcrypto` extension; `get_decrypted_transcript(report_id, key)`; `admin_queue_view`. Includes a `last_activity_at` column on `consultation_reports` for the Phase 3 timeout worker, and a `private.is_admin()` SECURITY DEFINER helper used by the admin RLS policies (kept out of `public` so PostgREST never exposes it).
+  - [`20260526225509_harden_security_definer.sql`](supabase/migrations/20260526225509_harden_security_definer.sql) — fixup that moved `is_admin()` into the `private` schema and explicitly revoked `anon` from `get_decrypted_transcript`. Triggered by Supabase advisors flagging both as callable by `anon` even after `revoke from public` (anon/authenticated have separate default grants on `public.*`).
+  - [`20260526225926_seed_users.sql`](supabase/migrations/20260526225926_seed_users.sql) — no-op tracker; the actual clinician + admin seeding is a manual dashboard step documented at the top of the file. Patients self-register through `/register`.
+- **Types** generated to [`types/database.ts`](types/database.ts) via `supabase gen types`. Imported wherever Supabase is touched. Regenerate after every migration.
+- **Supabase clients** live in [`lib/supabase/server.ts`](lib/supabase/server.ts) (server-side, bound to `cookies()`) and [`lib/supabase/client.ts`](lib/supabase/client.ts) (browser).
 
-### Routes (all live)
+### Auth
 
-| Path | What renders |
-| --- | --- |
-| `/` | Redirect: role root if logged in, else `/login` |
-| `/login` | Email + password form, role detected from email domain |
-| `/register` | Patient signup form (no clinical baseline) with consent gate |
-| `/privacy` | Phase 1 placeholder privacy notice (NDPA-flavored) |
-| `/patient` | Mobile: greeting + big block CTA + emergency banner. Desktop: hero card + quick-action tiles + recent sessions table + right rail (patient summary + emergency card). In-progress session card with destructive abandon dialog. |
-| `/patient/interview/[reportId]` | Chat UI with `?state=start\|mid\|end\|error` demo states. Animated thinking-dots bubble on send, end-state "Report sent to Dr. Okafor" emerald chip, end-session confirm dialog. |
-| `/patient/sessions` | Past sessions list (file-icon avatar + status badges, no clickable detail) |
-| `/patient/profile` | Personal + contact + clinical baseline (blood group, genotype, language) via unified `ProfileScreen` |
-| `/clinician` | Severity-sorted case list with skeleton loader (900ms), severity filter chips with counts, sortable headers, `min-w-[980px]` desktop table + mobile card list with severity edge-bar |
-| `/clinician/case/[reportId]` | Patient header strip with `ConfidenceBand`, vitals strip with icon chips. SOAP / Transcript / Override tabs using base-ui `Tabs.Indicator`. Mobile: sticky bottom commit bar synced with the active override level. |
-| `/clinician/history` | Placeholder empty state |
-| `/clinician/profile` | Identity + MDCN credentials via unified `ProfileScreen` |
-| `/admin` | Queue (no clinical content) + 4 stat cards (28px tone-coloured value). Desktop bucket row (`All / Unassigned / Assigned`) + mobile segmented bucket switcher. Sidebar: clinician load card + "Today" KPIs card. Assign dialog. |
-| `/admin/case/[reportId]` | Metadata-only case detail with reassign affordance |
-| `/admin/profile` | Identity via unified `ProfileScreen` |
+- [`proxy.ts`](proxy.ts) — rewritten to refresh the Supabase session cookie on every matched request, redirect unauthenticated traffic from `/patient|/clinician|/admin` to `/login`, and bounce authed traffic away from `/login`/`/register` to `/`. **Patient-vs-clinician role gating is no longer done in the proxy** — it moved into each role's layout (see below) so the proxy stays DB-free.
+- [`app/(auth)/actions.ts`](app/(auth)/actions.ts) — `login`, `register`, and `signOut` server actions calling `supabase.auth.signInWithPassword` / `signUp` / `signOut`. `register` inserts the `profiles` row right after `signUp`; failures surface to the form via toast. After successful login, the action reads the user's role and redirects to the correct role root.
+- [`lib/auth/session.ts`](lib/auth/session.ts) — `getSessionProfile()` returns `{ user, profile }` or `null`. Single DB hit per request, used by layouts (role gate + sidebar) and the root page.
+- [`lib/auth/roles.ts`](lib/auth/roles.ts) — new home for the pure `roleRoot()` helper. The old `lib/auth/mock.ts` is deleted; no `mock-role` cookie logic, no `roleFromEmail`, no `MOCK_COOKIE` references remain in the codebase.
 
-### Toast triggers wired (6 total)
+### Role layouts now gate by role
 
-- Vitals saved → "Vitals saved / Just one more step before we begin."
-- Abandon in-progress session → "Session abandoned / partial responses not sent…"
-- End interview session → "Session ended / The doctor will see what you submitted."
-- Register submit → "Welcome to Sunshine Medical / Your account is ready."
-- Override / mark complete → branches on `isOverride`: "Override submitted" vs "Case marked complete"
-- Admin assign case → "Assigned to {clinician} / {patient} has been routed…"
+- [`app/(patient)/patient/layout.tsx`](app/(patient)/patient/layout.tsx), [`app/(clinician)/clinician/layout.tsx`](app/(clinician)/clinician/layout.tsx), [`app/(admin)/admin/layout.tsx`](app/(admin)/admin/layout.tsx) — each is now an async server component that calls `getSessionProfile()`, redirects to `/login` if no session, redirects to the correct role root if the role doesn't match, then passes the real profile name + a role-specific subtitle (department/MDCN for clinician, department for admin, email for patient) into `RoleShell`. One profile fetch covers both the role check and the sidebar user display.
 
-## What's stubbed (Phase 2+ replaces)
+### Profile surfaces
 
-- **Auth**: cookie-based mock (`lib/auth/mock.ts`, `lib/auth/session.ts`, `proxy.ts`). Email-domain rule: `@sunshine.med.ng` → clinician, `@sunshine.admin.ng` → admin, else patient.
-- **Mock data**: `lib/data/mock-cases.ts` — 12 cases (Adebayo through Segun), one detailed SOAP, one 10-turn transcript, 4 clinicians, three "me" profiles.
-- **All form submits** are no-ops (login/register set the cookie + redirect; vitals/complaint route to the interview; override pretends to save and locally flips to a "Case completed" card).
-- **Interview chat** is static — no streaming, no LLM, no STT. Mic button toggles a "recording" UI state only. Thinking dots fire on send but the AI never actually replies.
-- **`Refresh` buttons** on `/clinician` and `/admin` have no `onClick`.
-- **`Export PDF`** in the transcript panel has no `onClick`.
-- **Audit trail** entries on the override panel side rail are hardcoded.
-- **"Today" KPIs** in the admin sidebar are hardcoded.
-- **"Updated 2 minutes ago"** / **"Generated by triage AI · 2 minutes ago · Model v0.4.2"** are hardcoded meta strings.
+- The three `/patient/profile`, `/clinician/profile`, `/admin/profile` pages now fetch `getSessionProfile()` server-side and render the live `profiles` row via the existing `ProfileScreen`. Field shape is mapped at the page level — no changes to `ProfileScreen`'s prop types beyond adding an optional `children` slot.
+- **Patient clinical-baseline editor** — [`app/(patient)/patient/profile/_components/baseline-editor.tsx`](app/(patient)/patient/profile/_components/baseline-editor.tsx) is a `react-hook-form` + `standardSchemaResolver` form (same pattern as login/register) with selects for `blood_group`, `genotype` and an input for `preferred_language`. The zod schema lives in [`lib/schemas/profile.ts`](lib/schemas/profile.ts) so server and client share it. Save calls [`updatePatientBaseline`](app/(patient)/patient/profile/actions.ts), which RLS-scopes the update to the caller's own row and `revalidatePath`s `/patient/profile`; the client then `router.refresh()`es so the read-only display above re-fetches. Toasts on success and error. The editor narrows DB `text | null` to the enum union at its boundary so a column value outside the allowed set falls back to "Not specified" rather than crashing the form.
 
-## What's not started yet (per `BUILD_SPEC.md` §14 phases 2 onward)
+### Sign-out + welcome toast
 
-- Supabase project, DB schema, RLS policies
-- Real Supabase Auth (login/register actually persisting)
-- Real server actions for vitals, sessions, override, case completion
-- Gemini Primary Analyst (Chart Selector + Interview Agent)
-- pgmq queue + Edge Function Referee Agent (Groq Llama 3.3 70B)
-- pg_cron timeout worker
-- pgcrypto transcript encryption
-- Web Speech API STT wiring (mic button is a visual stub only)
-- Evaluation harness
+- `RoleShell` sign-out now calls the `signOut` server action (which redirects to `/login`), replacing the mock cookie-clear.
+- The Phase 1 register-success toast was moved into [`WelcomeToast`](app/(patient)/patient/_components/welcome-toast.tsx) — register redirects to `/patient?welcome=1`, the toast component fires once on mount and strips the query param. This preserves the Phase 1 toast trigger without coupling it to the (now-redirecting) server action.
 
-## Where things live
+## Phase 2 conventions baked in
 
-- Theme tokens: [`app/globals.css`](app/globals.css) — `@theme` block on top, brand `:root` below shadcn's mapping, `@keyframes chat-dot` for the interview thinking bubble
-- Root layout + fonts + `<Toaster />`: [`app/layout.tsx`](app/layout.tsx)
-- Mock auth: [`lib/auth/mock.ts`](lib/auth/mock.ts), [`lib/auth/session.ts`](lib/auth/session.ts), [`proxy.ts`](proxy.ts)
-- Mock data + types: [`lib/data/mock-cases.ts`](lib/data/mock-cases.ts), [`lib/types.ts`](lib/types.ts)
-- Form schemas: [`lib/schemas/auth.ts`](lib/schemas/auth.ts), [`lib/schemas/clinical.ts`](lib/schemas/clinical.ts)
-- Clinical primitives: [`components/clinical/`](components/clinical/) — `SeverityBadge`, `StatusBadge`, `ConfidenceIndicator` / `ConfidenceInline` / `ConfidenceBand`, `VitalChip` (icon + tone) + `VitalsStrip`, `EmergencyBanner`, `ProfileRow`, `ProfileScreen` (shared by all three role profile pages)
-- Brand: [`components/brand/brand-mark.tsx`](components/brand/brand-mark.tsx)
-- Role shell + nav: [`components/shell/`](components/shell/) — sticky `h-screen` desktop sidebar with Linear-style collapse handle, mobile `Sheet` drawer with separated Sign-out row (`showCloseButton={false}` on the Sheet to avoid the duplicate close icon)
-- shadcn primitives: [`components/ui/`](components/ui/) — `TabsIndicator` extension added to `tabs.tsx`
-- Route group layouts: `app/(patient)/`, `app/(clinician)/`, `app/(admin)/`, `app/(auth)/`, `app/(public)/`
+- **Generated DB types are canonical at the data boundary.** Server code reads/writes `Database`-typed rows via the `Tables<>`/`Enums<>` shorthands; pages adapt to the UI types at the component boundary. No file uses the long-form `Database["public"]["Tables"][…]["Row"]` access.
+- **Schemas are colocated with the data they validate, not the action.** Zod schemas live in `lib/schemas/*` so server actions and client forms can both import them. `auth.ts`, `clinical.ts`, `profile.ts` are the current set.
+- **RLS is the security boundary, not the UI.** Layout redirects are a UX nicety; the policies in the initial schema migration independently prevent cross-account reads. Patient A's session cannot read Patient B's `profiles` row even if A bypasses the UI.
+- **Service role key and `TRANSCRIPT_ENCRYPTION_KEY` never reach the browser.** They only appear in `.env.local` and are read only inside server actions / the migration. No client component imports them.
+- **`SECURITY DEFINER` helpers that aren't called by application code live in the `private` schema.** Keeps them out of the auto-exposed PostgREST surface and out of advisor warnings.
+- **`import "server-only"` marker** on `lib/supabase/server.ts` and `lib/auth/session.ts` — fails the build at the import boundary if a client component reaches for them.
 
-## Phase 1 conventions baked in
+## Advisor state
 
-- `standardSchemaResolver` (not `zodResolver`) for all forms — sidesteps the Zod-version-pinned resolver overloads. Schemas are vanilla Zod 4.
-- One responsive component per route. Where mobile and desktop layouts diverge meaningfully (interview, dashboards, case detail), the component branches with Tailwind responsive utilities. No `_Phone` / `_Desktop` splits.
-- Severity color is always paired with a text label.
-- Confidence wording is fixed: ≥85 "High confidence", 75–84 "Verify carefully", <75 "Manual review recommended".
-- Hospital naming: "Outpatient Triage" / "Sunshine Medical Centre · Lagos" (middle-dot separator).
-- **Tables with horizontal-scroll fallback**: wrap in shadcn's `<Table>` (which already gives `overflow-x-auto`) and set `className="min-w-[Npx]"` on the inner table. Outer `<Card>` uses `py-0 gap-0` to suppress its default `py-4 gap-4` vertical breathing.
-- **`<main>` in `RoleShell` has `min-w-0`** so wide-table children never force page-level horizontal scroll.
-- **Base UI Tabs underline**: use `<TabsIndicator />` inside the `TabsList`, not the shadcn primitive's `::after` (which sits at `bottom-[-5px]` and uses `data-active`, not `data-state=active`). The Indicator span auto-tracks the active tab via `--active-tab-left` / `--active-tab-width` CSS vars.
-- **Before touching any screen, read the corresponding `screens-*.jsx` in the design prototype directory first.** Build with shadcn primitives but override classes to match the design source. This is saved as a feedback memory for future sessions.
+Last `supabase db advisors --linked` run: **4 WARN, 0 ERROR.** All four are deliberate-or-deferred:
 
-## Known gaps and TODOs
+- **`get_decrypted_transcript` callable by `authenticated`** — intentional. Phase 3 server actions need to call it via `supabase.rpc()`. RLS inside the function still enforces "patient self OR active assigned clinician."
+- **3 × multiple permissive policies on SELECT** (`profiles`, `vital_records`, `consultation_reports`) — perf hint at tiny row counts. Combining the role-specific SELECT policies into one OR'd policy each is a Phase 3+ cleanup, not blocking.
 
-- The interview "Continue" path always routes to `R-2041` regardless of vitals/complaint — placeholder until Phase 3 starts real sessions.
-- The clinician dashboard search input filters correctly but is not persisted in URL.
-- The `Refresh` buttons on clinician + admin dashboards are no-op stubs.
-- The `Export PDF` button on the transcript panel is a no-op stub.
-- The override panel "complete" state is local to `CaseDetailView` — flips to a `CompletedCard` and shows a toast, but the case stays in the (mock) dashboard list because nothing persists.
-- The mobile sticky commit bar's `Confirm` button hides after `committed` flips, but there's no inline message indicating success on mobile beyond the toast.
-- `hasVitalsToday` skip-logic is not implemented — patients always see the vitals modal first. Phase 2 needs a real "vitals already today" check.
-- `confidenceWording` toggle (terse/full) from the design's Tweaks panel is not implemented; the full wording is hardcoded.
-- Audit trail entries on override side rail are static — should populate from case history.
-- Forgot password not implemented (out of scope per handoff).
+## What's still on mock data (unchanged from Phase 1)
+
+All clinical surfaces still import from [`lib/data/mock-cases.ts`](lib/data/mock-cases.ts):
+
+- `/patient` dashboard (in-progress card, recent sessions table)
+- `/patient/sessions` past sessions list
+- `/patient/interview/[reportId]` chat UI
+- `/clinician` dashboard case list
+- `/clinician/case/[reportId]` SOAP + transcript + override
+- `/clinician/history`
+- `/admin` queue + stat cards + clinician-load rail
+- `/admin/case/[reportId]` metadata view
+
+A logged-in clinician seeing mock cases that don't correspond to any real `consultation_reports` rows is expected for Phase 2 — these surfaces get wired in Phase 3 alongside the real intake flow.
+
+## Routes (all still live)
+
+15 routes, same as Phase 1, but most role-grouped pages flipped from static to dynamic in the build output because their layouts now run a per-request profile fetch.
+
+## Where the new things live
+
+- Supabase clients: [`lib/supabase/server.ts`](lib/supabase/server.ts), [`lib/supabase/client.ts`](lib/supabase/client.ts)
+- Auth helpers: [`lib/auth/session.ts`](lib/auth/session.ts), [`lib/auth/roles.ts`](lib/auth/roles.ts)
+- Auth actions: [`app/(auth)/actions.ts`](app/(auth)/actions.ts) (`login`, `register`, `signOut`)
+- Profile editor: [`app/(patient)/patient/profile/actions.ts`](app/(patient)/patient/profile/actions.ts), [`app/(patient)/patient/profile/_components/baseline-editor.tsx`](app/(patient)/patient/profile/_components/baseline-editor.tsx), schema in [`lib/schemas/profile.ts`](lib/schemas/profile.ts)
+- Welcome toast: [`app/(patient)/patient/_components/welcome-toast.tsx`](app/(patient)/patient/_components/welcome-toast.tsx)
+- Generated types: [`types/database.ts`](types/database.ts)
+- Migrations: [`supabase/migrations/`](supabase/migrations/)
+
+## Supabase project state at end of Phase 2
+
+- Email confirmation: **OFF** (Auth → Providers → Email → Confirm email). Necessary because the register action does `signUp` then inserts the profile row using the just-created session; with confirmation on, signUp returns no session and the insert fails RLS. Documented limitation for the thesis prototype.
+- Seeded accounts (real `auth.users` + `public.profiles` rows): `i.okafor@sunshine.med.ng` (clinician, `10c58ef4-7f57-4d08-aa75-b72890804b4d`) and `a.nwosu@sunshine.admin.ng` (admin, `863a39eb-a874-4d64-8a82-4c16c02cf61e`).
+
+## Known gaps / Phase 3 TODOs
+
+Inherited from Phase 1, plus new items:
+
+- **SOAP shape reconciliation (Phase 3).** [`lib/types.ts`](lib/types.ts) `SoapReport` uses abbreviated keys (`cc`, `hpi`, `pmh`, `meds`…). The canonical LLM-output SOAP JSON (`subjective.chief_complaint`, `subjective.history_of_present_illness`, `subjective.past_medical_history: string[]`, etc.) is materially different. When the real Gemini output starts flowing, either map at the data boundary or replace `lib/types.ts` `SoapReport` with the canonical shape. Mock-driven UI is unaffected for Phase 2.
+- **Multiple permissive RLS SELECT policies** — combine into single OR'd policies on `profiles`, `vital_records`, `consultation_reports` once row counts are non-trivial.
+- **Clinician/admin sign-out** is hooked to the real `signOut` action, but there is no "are you sure?" confirm dialog. Phase 1 didn't have one either; flagged in case it's wanted.
+- Carryover from Phase 1: the interview "Continue" path still routes to `R-2041`; refresh + export PDF + audit-trail are still stubs; `hasVitalsToday` skip-logic still not implemented.
 
 ## Build state
 
 - `pnpm build`: clean, 15 routes
-- `pnpm lint`: 0 errors, ~2 informational warnings (RHF `watch()` React Compiler note)
-- No `any` types, no TODO/FIXME comments
+- `pnpm lint`: 0 errors, 2 informational warnings carried over from Phase 1 (RHF `watch()` React Compiler note in `start-triage-flow.tsx`, `aria-pressed` on a `role=tab` in `admin-queue.tsx`). No new warnings.
+- Three migrations applied to the live project; advisors at 4 WARN, 0 ERROR (all explained above).
