@@ -60,7 +60,7 @@ export default async function ClinicianCasePage({
   const { data: report } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, confidence_score, session_started_at, session_ended_at, reviewed_at, soap_report, referee_flags",
+      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, clinician_notes, confidence_score, session_started_at, session_ended_at, reviewed_at, soap_report, referee_flags",
     )
     .eq("id", reportId)
     .maybeSingle();
@@ -143,6 +143,8 @@ export default async function ClinicianCasePage({
     },
     assignedTo: assignedClinicianName,
     status: report.status as SessionStatus,
+    clinicianNotes: report.clinician_notes,
+    reviewedAt: report.reviewed_at,
   };
 
   // SOAP may be null if the AI pipeline failed; surface a fallback instead of

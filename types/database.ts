@@ -44,6 +44,7 @@ export type Database = {
           ai_triage_label: Database["public"]["Enums"]["triage_level"] | null
           assigned_clinician_id: string | null
           chief_complaint: string
+          clinician_notes: string | null
           clinician_triage_label:
             | Database["public"]["Enums"]["triage_level"]
             | null
@@ -67,6 +68,7 @@ export type Database = {
           ai_triage_label?: Database["public"]["Enums"]["triage_level"] | null
           assigned_clinician_id?: string | null
           chief_complaint: string
+          clinician_notes?: string | null
           clinician_triage_label?:
             | Database["public"]["Enums"]["triage_level"]
             | null
@@ -90,6 +92,7 @@ export type Database = {
           ai_triage_label?: Database["public"]["Enums"]["triage_level"] | null
           assigned_clinician_id?: string | null
           chief_complaint?: string
+          clinician_notes?: string | null
           clinician_triage_label?:
             | Database["public"]["Enums"]["triage_level"]
             | null

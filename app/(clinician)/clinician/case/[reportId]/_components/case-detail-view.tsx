@@ -113,6 +113,12 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
   const [committed, setCommitted] = useState(caseRow.status === "completed");
 
   const isOverride = overrideLevel !== caseRow.severity;
+  // A completed case is a historical record — wait timers, "taken Xh ago"
+  // vitals chips, and the "Active cases" back-link are all stale concepts.
+  // The view collapses to: clinical content + when the case was reviewed.
+  const isCompleted = caseRow.status === "completed";
+  const backHref = isCompleted ? "/clinician/history" : "/clinician";
+  const backLabel = isCompleted ? "History" : "Active cases";
 
   const handleLevelChange = (level: Severity) => {
     setOverrideLevel(level);
@@ -133,7 +139,11 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
     }
     setReasonError(null);
     setIsSubmitting(true);
-    const result = await commitCaseReviewAction(caseRow.id, overrideLevel);
+    const result = await commitCaseReviewAction(
+      caseRow.id,
+      overrideLevel,
+      reason,
+    );
     setIsSubmitting(false);
     if ("error" in result) {
       toast.error("Could not save review", { description: result.error });
@@ -157,8 +167,8 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col md:hidden">
         <header className="sticky top-14 z-20 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-white px-3">
           <Link
-            href="/clinician"
-            aria-label="Back to active cases"
+            href={backHref}
+            aria-label={`Back to ${backLabel.toLowerCase()}`}
             className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
           >
             <ArrowLeft className="h-[18px] w-[18px]" />
@@ -166,7 +176,7 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
           <div className="leading-tight">
             <div className="text-[13px] font-semibold">Case {displayId}</div>
             <div className="text-[11px] text-muted-foreground">
-              Active cases
+              {backLabel}
             </div>
           </div>
           <span className="ml-auto">
@@ -198,7 +208,9 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
               <StatusBadge status={caseRow.status} />
               <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                {caseRow.waitedMin}m
+                {isCompleted
+                  ? `Reviewed ${formatRelative(caseRow.reviewedAt ?? null)}`
+                  : `${caseRow.waitedMin}m`}
               </span>
             </div>
             <div className="mt-3.5">
@@ -212,7 +224,11 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
             </h2>
             <VitalsStrip
               vitals={caseRow.vitals}
-              takenAgo={formatShort(caseRow.vitals.recordedAt ?? null)}
+              takenAgo={
+                isCompleted
+                  ? undefined
+                  : formatShort(caseRow.vitals.recordedAt ?? null)
+              }
               className="grid-cols-2"
             />
           </section>
@@ -246,11 +262,17 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
               <SoapPanel soap={soap} />
             </TabsContent>
             <TabsContent value="transcript" className="m-0">
-              <TranscriptPanel transcript={transcript} />
+              <TranscriptPanel
+                transcript={transcript}
+                status={caseRow.status}
+              />
             </TabsContent>
             <TabsContent value="override" className="m-0">
               {committed ? (
-                <CompletedCard reportId={caseRow.id} />
+                <CompletedCard
+                  reportId={caseRow.id}
+                  notes={caseRow.clinicianNotes ?? (reason.trim() || null)}
+                />
               ) : (
                 <OverridePanel
                   aiLevel={caseRow.severity}
@@ -305,11 +327,11 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
       <div className="mx-auto hidden w-full max-w-[1100px] flex-col gap-5 px-5 py-6 md:flex md:px-8 md:py-6">
         <nav className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
           <Link
-            href="/clinician"
+            href={backHref}
             className="-ml-1 inline-flex items-center gap-1 rounded px-1.5 py-1 transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Active cases
+            {backLabel}
           </Link>
           <span>/</span>
           <span className="font-medium text-foreground">{displayId}</span>
@@ -341,7 +363,9 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
                   <StatusBadge status={caseRow.status} />
                   <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    Waiting {caseRow.waitedMin}m
+                    {isCompleted
+                      ? `Reviewed ${formatRelative(caseRow.reviewedAt ?? null)}`
+                      : `Waiting ${caseRow.waitedMin}m`}
                   </span>
                 </div>
               </div>
@@ -357,7 +381,11 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
             </h2>
             <VitalsStrip
               vitals={caseRow.vitals}
-              takenAgo={formatShort(caseRow.vitals.recordedAt ?? null)}
+              takenAgo={
+                isCompleted
+                  ? undefined
+                  : formatShort(caseRow.vitals.recordedAt ?? null)
+              }
             />
           </CardContent>
         </Card>
@@ -389,11 +417,17 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
             <SoapPanel soap={soap} />
           </TabsContent>
           <TabsContent value="transcript" className="m-0">
-            <TranscriptPanel transcript={transcript} />
+            <TranscriptPanel transcript={transcript} status={caseRow.status} />
           </TabsContent>
           <TabsContent value="override" className="m-0">
             {committed ? (
-              <CompletedCard reportId={caseRow.id} />
+              <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+                <CompletedCard
+                  reportId={caseRow.id}
+                  notes={caseRow.clinicianNotes ?? (reason.trim() || null)}
+                />
+                <OverrideSideRail audit={audit} showTips={false} />
+              </div>
             ) : (
               <OverridePanel
                 aiLevel={caseRow.severity}
@@ -416,10 +450,16 @@ export function CaseDetailView({ caseRow, soap, transcript, audit }: Props) {
   );
 }
 
-function CompletedCard({ reportId }: { reportId: string }) {
+function CompletedCard({
+  reportId,
+  notes,
+}: {
+  reportId: string;
+  notes: string | null;
+}) {
   return (
     <Card>
-      <CardContent className="flex flex-col items-start gap-2 px-6 py-6">
+      <CardContent className="flex flex-col items-start gap-3 px-6 py-6">
         <div className="flex items-center gap-2 text-emerald-700">
           <CheckCircle2 className="h-5 w-5" />
           <span className="text-sm font-semibold">Case completed</span>
@@ -428,6 +468,16 @@ function CompletedCard({ reportId }: { reportId: string }) {
           Report <span className="font-mono">{shortReportId(reportId)}</span>{" "}
           marked complete. The patient queue has been updated.
         </p>
+        {notes && (
+          <div className="mt-1 w-full rounded-md border border-border bg-muted/40 px-3.5 py-3">
+            <p className="mb-1 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+              Clinician note
+            </p>
+            <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/85">
+              {notes}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -465,27 +515,35 @@ function formatShort(iso: string | null): string {
   }
 }
 
-function OverrideSideRail({ audit }: { audit: AuditEntry[] }) {
+function OverrideSideRail({
+  audit,
+  showTips = true,
+}: {
+  audit: AuditEntry[];
+  showTips?: boolean;
+}) {
   return (
     <aside className="flex flex-col gap-4">
-      <Card>
-        <CardContent className="flex flex-col gap-3 px-5 py-5">
-          <h3 className="text-[13px] font-semibold">When to override</h3>
-          <ul className="flex flex-col gap-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
-            {[
-              "Confidence is below 75% — the AI itself flags it.",
-              "New findings on physical exam not reflected in vitals.",
-              "Patient history you have access to that the AI does not.",
-              "Local protocol differs from the AI's recommendation.",
-            ].map((s, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      {showTips && (
+        <Card>
+          <CardContent className="flex flex-col gap-3 px-5 py-5">
+            <h3 className="text-[13px] font-semibold">When to override</h3>
+            <ul className="flex flex-col gap-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
+              {[
+                "Confidence is below 75% — the AI itself flags it.",
+                "New findings on physical exam not reflected in vitals.",
+                "Patient history you have access to that the AI does not.",
+                "Local protocol differs from the AI's recommendation.",
+              ].map((s, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {audit.length > 0 && (
         <Card>

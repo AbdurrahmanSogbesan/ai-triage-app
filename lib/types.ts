@@ -31,6 +31,10 @@ export type Case = {
   vitals: Vitals;
   assignedTo: string | null;
   status: SessionStatus;
+  aiSeverity?: Severity | null;
+  clinicianSeverity?: Severity | null;
+  clinicianNotes?: string | null;
+  reviewedAt?: string | null;
 };
 
 export type PastSession = {
