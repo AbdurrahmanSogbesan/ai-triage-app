@@ -3,7 +3,7 @@
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { ArrowRight, Info, Stethoscope } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Controller,
   useForm,
@@ -12,13 +12,14 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { ME_PATIENT_ACTIVE_CASE_ID } from "@/lib/data/mock-cases";
 import {
   chiefComplaintSchema,
   vitalsSchema,
   type ChiefComplaintInput,
   type VitalsInput,
 } from "@/lib/schemas/clinical";
+
+import { startConsultationAction, submitVitalsAction } from "./actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-type Step = "idle" | "vitals" | "complaint" | "submitting";
+type Step = "idle" | "vitals" | "transitioning" | "complaint" | "submitting";
+
+// Base UI Dialog uses a 100ms close animation. We hold the in-between state
+// for a touch longer so the vitals backdrop fades fully out and the success
+// toast has a beat to land before the complaint modal opens — without this
+// gap, both dialogs' open/close transitions overlap and the backdrop visibly
+// flickers.
+const STEP_TRANSITION_MS = 220;
 
 const PREFILL_PHRASES = {
   Pain: "I have pain in my ",
@@ -55,14 +63,71 @@ const MAX_COMPLAINT = 300;
 
 export function StartTriageFlow({
   variant = "default",
+  hasVitalsToday = false,
 }: {
   variant?: "default" | "block";
+  hasVitalsToday?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("idle");
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, []);
 
   const closeAll = () => setStep("idle");
-  const start = () => setStep("vitals");
+  const start = () => setStep(hasVitalsToday ? "complaint" : "vitals");
+
+  const handleVitalsSubmit = async (values: VitalsInput): Promise<boolean> => {
+    try {
+      const result = await submitVitalsAction(values);
+      if ("error" in result) {
+        toast.error("Couldn't save vitals", { description: result.error });
+        return false;
+      }
+      setStep("transitioning");
+      toast.success("Vitals saved", {
+        description: "Just one more step before we begin.",
+      });
+      transitionTimerRef.current = setTimeout(
+        () => setStep("complaint"),
+        STEP_TRANSITION_MS,
+      );
+      return true;
+    } catch (err) {
+      toast.error("Network error", {
+        description: err instanceof Error ? err.message : "Try again.",
+      });
+      return false;
+    }
+  };
+
+  const handleComplaintSubmit = async (
+    values: ChiefComplaintInput,
+  ): Promise<boolean> => {
+    try {
+      const result = await startConsultationAction(values);
+      if ("error" in result) {
+        toast.error("Couldn't start interview", {
+          description: result.error,
+        });
+        return false;
+      }
+      setStep("submitting");
+      router.push(`/patient/interview/${result.reportId}`);
+      return true;
+    } catch (err) {
+      toast.error("Network error", {
+        description: err instanceof Error ? err.message : "Try again.",
+      });
+      return false;
+    }
+  };
 
   return (
     <>
@@ -71,7 +136,7 @@ export function StartTriageFlow({
           type="button"
           onClick={start}
           aria-label="Start a new triage session"
-          className="flex w-full min-h-[64px] items-center justify-between gap-3 rounded-xl bg-primary px-5 py-4 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="flex w-full min-h-16 items-center justify-between gap-3 rounded-xl bg-primary px-5 py-4 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <div className="flex flex-col items-start leading-tight">
             <span className="text-[16.5px] font-semibold">Start triage</span>
@@ -93,24 +158,14 @@ export function StartTriageFlow({
       <VitalsModal
         open={step === "vitals"}
         onCancel={closeAll}
-        onSubmit={() => {
-          setStep("complaint");
-          toast.success("Vitals saved", {
-            description: "Just one more step before we begin.",
-          });
-        }}
+        onSubmit={handleVitalsSubmit}
       />
 
       <ChiefComplaintModal
         open={step === "complaint"}
-        onBack={() => setStep("vitals")}
+        onBack={() => setStep(hasVitalsToday ? "idle" : "vitals")}
         onCancel={closeAll}
-        onSubmit={() => {
-          setStep("submitting");
-          router.push(
-            `/patient/interview/${ME_PATIENT_ACTIVE_CASE_ID}?state=start`,
-          );
-        }}
+        onSubmit={handleComplaintSubmit}
       />
     </>
   );
@@ -122,7 +177,7 @@ function VitalsModal({
   onCancel,
 }: {
   open: boolean;
-  onSubmit: (values: VitalsInput) => void;
+  onSubmit: (values: VitalsInput) => Promise<boolean>;
   onCancel: () => void;
 }) {
   const form = useForm<VitalsInput>({
@@ -131,7 +186,7 @@ function VitalsModal({
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     getValues,
     reset,
   } = form;
@@ -141,7 +196,7 @@ function VitalsModal({
     // `isDirty` from RHF fires too eagerly for our case.
     const values = getValues();
     const hasValue = Object.values(values).some(
-      (v) => typeof v === "number" && !Number.isNaN(v)
+      (v) => typeof v === "number" && !Number.isNaN(v),
     );
     if (hasValue && !confirm("Discard these readings?")) return;
     reset();
@@ -159,14 +214,15 @@ function VitalsModal({
         <DialogHeader>
           <DialogTitle>Record today&apos;s vitals</DialogTitle>
           <DialogDescription>
-            Please enter the readings the nurse took for you at intake.
+            Measure your blood pressure, temperature, and weight using the
+            clinic&apos;s self-check station, then enter the readings below.
             You&apos;ll only need to do this once today.
           </DialogDescription>
         </DialogHeader>
         <form
-          onSubmit={handleSubmit((v) => {
-            onSubmit(v);
-            reset();
+          onSubmit={handleSubmit(async (v) => {
+            const ok = await onSubmit(v);
+            if (ok) reset();
           })}
           className="flex flex-col gap-5"
           noValidate
@@ -214,10 +270,17 @@ function VitalsModal({
             </div>
           </FieldGroup>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button type="submit">Save &amp; continue</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save & continue"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -255,7 +318,7 @@ function VitalRow({
           className={cn(
             "flex items-stretch overflow-hidden rounded-lg border bg-white transition-shadow",
             "focus-within:border-transparent focus-within:ring-2 focus-within:ring-primary",
-            error ? "border-destructive/50" : "border-input"
+            error ? "border-destructive/50" : "border-input",
           )}
         >
           <Input
@@ -289,7 +352,7 @@ function ChiefComplaintModal({
   onCancel,
 }: {
   open: boolean;
-  onSubmit: (values: ChiefComplaintInput) => void;
+  onSubmit: (values: ChiefComplaintInput) => Promise<boolean>;
   onBack: () => void;
   onCancel: () => void;
 }) {
@@ -303,7 +366,7 @@ function ChiefComplaintModal({
     setValue,
     getValues,
     watch,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
     reset,
   } = form;
 
@@ -338,9 +401,9 @@ function ChiefComplaintModal({
           </DialogDescription>
         </DialogHeader>
         <form
-          onSubmit={handleSubmit((v) => {
-            onSubmit(v);
-            reset();
+          onSubmit={handleSubmit(async (v) => {
+            const ok = await onSubmit(v);
+            if (ok) reset();
           })}
           className="flex flex-col gap-4"
           noValidate
@@ -415,10 +478,17 @@ function ChiefComplaintModal({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onBack}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              disabled={isSubmitting}
+            >
               Back
             </Button>
-            <Button type="submit">Start interview</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Starting…" : "Start interview"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

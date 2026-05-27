@@ -32,11 +32,11 @@ export default function PrivacyPage() {
           </h2>
           <p className="mt-2">
             We collect identifying details you provide at registration (name,
-            date of birth, sex, contact details), vital signs measured at
-            intake, and the conversation between you and the AI triage
-            assistant. Clinical baseline details such as blood group and
-            genotype are added by you on your profile and are not required to
-            create an account.
+            date of birth, sex, contact details), vital signs you measure and
+            enter yourself before each triage, and the conversation between
+            you and the AI triage assistant. Clinical baseline details such
+            as blood group and genotype are added by you on your profile and
+            are not required to create an account.
           </p>
         </section>
         <section>
@@ -66,10 +66,16 @@ export default function PrivacyPage() {
             Storage and processing
           </h2>
           <p className="mt-2">
-            Transcripts are encrypted at rest. Conversation content is
-            processed by third-party AI services to generate your clinical
-            summary. We will publish a complete list of subprocessors before
-            the system goes into production use.
+            While your triage interview is in progress, the conversation is
+            held only on the device you are using, so you can pause and resume
+            without exposing it to anyone else. When you tap End session, the
+            full transcript is sent to Sunshine Medical Centre, encrypted at
+            rest, and removed from your device. For this reason we recommend
+            using your own phone or laptop rather than a shared device; if you
+            must use a shared device, end the session before walking away.
+            Conversation content is processed by third-party AI services to
+            generate your clinical summary. We will publish a complete list
+            of subprocessors before the system goes into production use.
           </p>
         </section>
         <section>

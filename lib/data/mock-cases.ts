@@ -5,8 +5,6 @@ import type {
   ClinicianProfile,
   PastSession,
   PatientProfile,
-  SoapReport,
-  TranscriptTurn,
 } from "@/lib/types";
 
 export const CASES: Case[] = [
@@ -249,82 +247,6 @@ export const PATIENT_HISTORY: PastSession[] = [
     status: "abandoned",
   },
 ];
-
-export const TRANSCRIPT_R2041: TranscriptTurn[] = [
-  {
-    role: "patient",
-    text: "I've had chest pain for about two hours. It started while I was walking up the stairs at home.",
-  },
-  {
-    role: "ai",
-    text: "Thank you for telling me, Adebayo. I'm sorry you're feeling this. Can you describe the pain — is it sharp, dull, tight, or burning?",
-  },
-  {
-    role: "patient",
-    text: "It feels tight, like pressure. It also goes into my left arm a bit.",
-  },
-  {
-    role: "ai",
-    text: "Got it. On a scale from 1 to 10, where 10 is the worst pain you've ever felt, how would you rate it right now?",
-  },
-  { role: "patient", text: "Around a 7. It eased a little after I sat down." },
-  {
-    role: "ai",
-    text: "Have you felt short of breath, sweaty, nauseous, or had a similar episode before?",
-  },
-  {
-    role: "patient",
-    text: "Yes, I was sweating a lot and felt a bit nauseous. Nothing like this before.",
-  },
-  {
-    role: "ai",
-    text: "Are you currently taking any medication, and do you have any conditions like high blood pressure or diabetes?",
-  },
-  {
-    role: "patient",
-    text: "I take medication for high blood pressure. Lisinopril, I think. No diabetes.",
-  },
-  {
-    role: "ai",
-    text: "Thank you. Is there anything else you'd like to add before I prepare a summary for the doctor?",
-  },
-];
-
-export const SOAP_R2041: SoapReport = {
-  subjective: {
-    cc: "Chest pain radiating to left arm, 2 hours duration.",
-    hpi: "54-year-old male, known hypertensive on lisinopril. Reports sudden onset of tight, pressure-like central chest pain while climbing stairs at home, 2 hours prior to presentation. Pain radiates to the left arm. Associated diaphoresis and nausea. Pain partially eased on rest, current intensity 7/10. No prior similar episodes. No history of diabetes or known cardiac disease.",
-    pmh: "Hypertension (on lisinopril). No prior MI, CABG, or stroke. No diabetes.",
-    meds: "Lisinopril (dose unconfirmed by patient).",
-    allergies: "No known drug allergies reported.",
-    social: "Patient declined to discuss smoking and alcohol intake in detail.",
-  },
-  objective: {
-    vitalsNote: "Hypertensive on presentation. Afebrile.",
-    bp: "168 / 102 mmHg",
-    temp: "37.1 °C",
-    weight: "84 kg",
-  },
-  assessment: {
-    primary: "Acute coronary syndrome — high clinical suspicion.",
-    differentials: [
-      "ST-elevation myocardial infarction (STEMI)",
-      "Non-ST-elevation myocardial infarction (NSTEMI)",
-      "Unstable angina",
-      "Aortic dissection (lower probability, exam-dependent)",
-    ],
-    rationale:
-      "Classic exertional substernal pressure with left-arm radiation, diaphoresis, and nausea in a hypertensive male over 50, with elevated BP on arrival. Symptoms warrant immediate cardiology evaluation.",
-  },
-  plan: [
-    "12-lead ECG within 10 minutes of arrival.",
-    "Troponin I — initial draw, repeat at 3 hours.",
-    "Aspirin 300 mg PO chewed (confirm no contraindication).",
-    "GTN sublingual 0.4 mg if SBP remains > 100 mmHg.",
-    "Continuous cardiac monitoring and IV access ×2.",
-    "Notify on-call cardiology; consider activation of cath-lab pathway if ECG shows ST elevation.",
-  ],
-};
 
 export const CLINICIANS: Clinician[] = [
   {

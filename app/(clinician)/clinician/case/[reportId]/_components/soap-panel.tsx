@@ -1,9 +1,11 @@
+import { format, parseISO } from "date-fns";
 import { Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { SoapReport } from "@/lib/types";
+import { SEVERITY_META } from "@/lib/types";
 
 function SoapSection({
   letter,
@@ -20,7 +22,7 @@ function SoapSection({
     <section
       className={cn(
         "grid grid-cols-1 gap-3 py-5 md:grid-cols-[140px_1fr] md:gap-6",
-        className
+        className,
       )}
     >
       <div className="flex md:flex-col">
@@ -41,6 +43,30 @@ function SoapSection({
   );
 }
 
+function ListKv({ k, items }: { k: string; items: string[] }) {
+  return (
+    <div className="grid grid-cols-[110px_1fr] gap-3 py-1.5">
+      <dt className="text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
+        {k}
+      </dt>
+      <dd className="text-[13.5px] text-foreground/90">
+        {items.length === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {items.map((item, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </dd>
+    </div>
+  );
+}
+
 function Kv({ k, v }: { k: string; v: string }) {
   return (
     <div className="grid grid-cols-[110px_1fr] gap-3 py-1.5">
@@ -52,81 +78,136 @@ function Kv({ k, v }: { k: string; v: string }) {
   );
 }
 
+// The SOAP schema stores blood_pressure as a free-text string. Gemini
+// sometimes emits "138/88", sometimes "138/88 mmHg". Strip any trailing
+// unit so the panel can render a single, consistent "<value> mmHg".
+function formatBloodPressure(raw: string): string {
+  return raw.replace(/\s*mmHg\s*$/i, "").trim();
+}
+
+function nonEmpty(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "—";
+}
+
 export function SoapPanel({ soap }: { soap: SoapReport }) {
+  const generatedAgo = (() => {
+    try {
+      return format(parseISO(soap.metadata.generated_at), "PPpp");
+    } catch {
+      return soap.metadata.generated_at;
+    }
+  })();
+
   return (
     <Card className="gap-0 py-0">
       <CardContent className="px-6 py-1">
         <SoapSection letter="S" title="Subjective">
           <p className="mb-3 font-medium text-foreground">
-            {soap.subjective.cc}
+            {soap.subjective.chief_complaint}
           </p>
-          <p>{soap.subjective.hpi}</p>
+          <p>{soap.subjective.history_of_present_illness}</p>
           <dl className="mt-4 divide-y divide-border">
-            <Kv k="PMH" v={soap.subjective.pmh} />
-            <Kv k="Meds" v={soap.subjective.meds} />
-            <Kv k="Allergies" v={soap.subjective.allergies} />
-            <Kv k="Social" v={soap.subjective.social} />
+            <ListKv k="Associated" items={soap.subjective.associated_symptoms} />
+            <ListKv k="PMH" items={soap.subjective.past_medical_history} />
+            <ListKv k="Meds" items={soap.subjective.current_medications} />
+            <ListKv k="Allergies" items={soap.subjective.allergies} />
+            <Kv k="Social" v={nonEmpty(soap.subjective.social_history)} />
           </dl>
         </SoapSection>
 
         <Separator />
 
         <SoapSection letter="O" title="Objective">
-          <p className="mb-3 font-medium text-foreground">
-            {soap.objective.vitalsNote}
-          </p>
+          {soap.objective.general_observations && (
+            <p className="mb-3 font-medium text-foreground">
+              {soap.objective.general_observations}
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
-            <Kv k="BP" v={soap.objective.bp} />
-            <Kv k="Temp" v={soap.objective.temp} />
-            <Kv k="Weight" v={soap.objective.weight} />
+            <Kv
+              k="BP"
+              v={`${formatBloodPressure(soap.objective.vitals.blood_pressure)} mmHg`}
+            />
+            <Kv
+              k="Temp"
+              v={`${soap.objective.vitals.temperature_celsius.toFixed(1)} °C`}
+            />
+            <Kv
+              k="Weight"
+              v={`${soap.objective.vitals.weight_kg.toFixed(1)} kg`}
+            />
           </dl>
         </SoapSection>
 
         <Separator />
 
         <SoapSection letter="A" title="Assessment">
-          <p className="mb-2 font-medium text-foreground">
-            {soap.assessment.primary}
+          <p className="mb-1 font-medium text-foreground">
+            {SEVERITY_META[soap.assessment.triage_level].label} ·{" "}
+            {SEVERITY_META[soap.assessment.triage_level].meaning}
+          </p>
+          <p className="mb-3 text-[12.5px] text-muted-foreground">
+            MTS chart applied: {soap.assessment.mts_chart_used}
           </p>
           <p className="mb-3">{soap.assessment.rationale}</p>
-          <div>
-            <p className="mb-2 text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
-              Differentials considered
-            </p>
-            <ul className="flex flex-col gap-1">
-              {soap.assessment.differentials.map((d, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 text-[13.5px]"
-                >
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-                  <span>{d}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {soap.assessment.discriminators_triggered.length > 0 && (
+            <div>
+              <p className="mb-2 text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                Discriminators triggered
+              </p>
+              <ul className="flex flex-col gap-2">
+                {soap.assessment.discriminators_triggered.map((d, i) => (
+                  <li key={i} className="flex flex-col gap-0.5">
+                    <span className="text-[13.5px] font-medium">{d.name}</span>
+                    <span className="text-[12.5px] text-muted-foreground">
+                      Evidence: {d.evidence}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </SoapSection>
 
         <Separator />
 
         <SoapSection letter="P" title="Plan">
-          <ol className="flex flex-col gap-2">
-            {soap.plan.map((p, i) => (
+          <p className="mb-2 text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
+            Next steps
+          </p>
+          <ol className="mb-4 flex flex-col gap-2">
+            {soap.plan.next_steps.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
                   {i + 1}
                 </span>
-                <span>{p}</span>
+                <span>{step}</span>
               </li>
             ))}
           </ol>
+          {soap.plan.red_flags_to_monitor.length > 0 && (
+            <>
+              <p className="mb-2 text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                Red flags to monitor
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {soap.plan.red_flags_to_monitor.map((flag, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
+                    <span>{flag}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </SoapSection>
       </CardContent>
 
       <div className="flex items-center justify-between rounded-b-xl border-t border-border bg-muted/30 px-6 py-3">
         <div className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
           <Sparkles className="h-3 w-3" />
-          Generated by triage AI · 2 minutes ago · Model v0.4.2
+          Generated {generatedAgo} · {soap.metadata.model}
         </div>
         <div className="hidden text-[12px] text-muted-foreground md:block">
           Always verify against patient context.

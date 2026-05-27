@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { ArrowRight, MessageSquare, MoreHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,11 +23,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { abandonSessionAction } from "./actions";
+
 type InProgress = {
   id: string;
   complaint: string;
-  startedAgo: string;
-  progress: number;
+  sessionStartedAt: string;
 };
 
 export function InProgressCard({
@@ -37,6 +39,33 @@ export function InProgressCard({
   variant?: "phone" | "desktop";
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const startedAgo = formatDistanceToNow(parseISO(session.sessionStartedAt), {
+    addSuffix: true,
+  });
+
+  function handleAbandon() {
+    startTransition(async () => {
+      const result = await abandonSessionAction(session.id);
+      setConfirmOpen(false);
+      if ("error" in result) {
+        toast.error("Could not abandon session", {
+          description: result.error,
+        });
+        return;
+      }
+      try {
+        window.localStorage.removeItem(`triage:transcript:${session.id}`);
+      } catch {
+        // non-fatal — the session is already marked abandoned server-side
+      }
+      toast("Session abandoned", {
+        description:
+          "Your partial responses were not sent. You can start a new triage when you're ready.",
+      });
+    });
+  }
 
   return (
     <div
@@ -50,10 +79,10 @@ export function InProgressCard({
           <MessageSquare className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start justify-between gap-2">
             <p
               className={cn(
-                "truncate font-medium",
+                "min-w-0 flex-1 truncate font-medium",
                 variant === "desktop" ? "text-[15px]" : "text-[14px]"
               )}
             >
@@ -78,20 +107,13 @@ export function InProgressCard({
             </DropdownMenu>
           </div>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
-            Started {session.startedAgo} ·{" "}
-            <span className="font-mono">{session.progress}%</span> complete
+            Started {startedAgo}
           </p>
-          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${session.progress}%` }}
-            />
-          </div>
         </div>
         {variant === "desktop" && (
           <Link
-            href={`/patient/interview/${session.id}?state=mid`}
-            className="ml-2 self-center"
+            href={`/patient/interview/${session.id}`}
+            className="ml-2 shrink-0 self-center"
           >
             <Button size="sm" className="gap-1.5">
               Continue
@@ -102,7 +124,7 @@ export function InProgressCard({
       </div>
       {variant === "phone" && (
         <Link
-          href={`/patient/interview/${session.id}?state=mid`}
+          href={`/patient/interview/${session.id}`}
           className="mt-3.5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-primary hover:underline"
         >
           Continue where you left off
@@ -120,20 +142,19 @@ export function InProgressCard({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={isPending}
+            >
               Keep session
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                setConfirmOpen(false);
-                toast("Session abandoned", {
-                  description:
-                    "Your partial responses were not sent. You can start a new triage when you're ready.",
-                });
-              }}
+              onClick={handleAbandon}
+              disabled={isPending}
             >
-              Abandon session
+              {isPending ? "Abandoning…" : "Abandon session"}
             </Button>
           </DialogFooter>
         </DialogContent>

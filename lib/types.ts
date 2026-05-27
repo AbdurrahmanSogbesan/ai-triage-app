@@ -45,28 +45,9 @@ export type TranscriptTurn = {
   text: string;
 };
 
-export type SoapReport = {
-  subjective: {
-    cc: string;
-    hpi: string;
-    pmh: string;
-    meds: string;
-    allergies: string;
-    social: string;
-  };
-  objective: {
-    vitalsNote: string;
-    bp: string;
-    temp: string;
-    weight: string;
-  };
-  assessment: {
-    primary: string;
-    differentials: string[];
-    rationale: string;
-  };
-  plan: string[];
-};
+// The clinician case detail consumes the AI-generated SOAP shape directly.
+// Re-exported here so existing UI imports keep working without churn.
+export type { SoapReport } from "@/lib/ai/schemas";
 
 export type Clinician = {
   id: string;
@@ -130,8 +111,8 @@ export const STATUS_META: Record<
 > = {
   in_progress: { label: "In progress", tone: "info" },
   abandoned: { label: "Abandoned", tone: "danger" },
-  awaiting_referee: { label: "Awaiting AI verification", tone: "warn" },
-  awaiting_clinician: { label: "Awaiting clinician", tone: "warn" },
+  awaiting_referee: { label: "Verifying", tone: "warn" },
+  awaiting_clinician: { label: "For review", tone: "warn" },
   completed: { label: "Completed", tone: "success" },
 };
 

@@ -1,20 +1,21 @@
 "use client";
 
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
   Mic,
   Send,
   Square,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import type { TranscriptTurn, Vitals } from "@/lib/types";
+import type { Vitals } from "@/lib/types";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,49 +27,143 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { endSessionAction } from "@/app/(patient)/patient/_components/actions";
+
 type Props = {
   reportId: string;
   patientFirstName: string;
   vitals: Vitals;
   complaint: string;
-  transcript: TranscriptTurn[];
-  state: "start" | "mid" | "end" | "error";
 };
 
-const TOTAL_QUESTIONS = 8;
+// Cosmetic only — Gemini decides when the interview concludes. The bar gives
+// the patient a rough sense of pacing rather than a strict step count.
+const TYPICAL_QUESTION_COUNT = 8;
+
+function transcriptStorageKey(reportId: string): string {
+  return `triage:transcript:${reportId}`;
+}
+
+function loadStoredMessages(reportId: string): UIMessage[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(transcriptStorageKey(reportId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UIMessage[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export function InterviewView({
   reportId,
   patientFirstName,
   vitals,
   complaint,
-  transcript,
-  state,
 }: Props) {
   const router = useRouter();
   const [endOpen, setEndOpen] = useState(false);
-  const [thinking, setThinking] = useState(false);
-  const answered = transcript.filter((t) => t.role === "patient").length;
+  const [input, setInput] = useState("");
+  const [isEnding, startEndTransition] = useTransition();
+  const seededRef = useRef(false);
+
+  const {
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    error,
+    stop,
+    regenerate,
+  } = useChat({
+    id: reportId,
+    transport: new DefaultChatTransport({
+      api: "/api/interview/chat",
+      body: { reportId },
+    }),
+  });
+
+  // Hydrate from localStorage on first mount. If we find a saved transcript
+  // for this report, restore it (skipping the chief-complaint seed). If not,
+  // seed the conversation with the chief complaint as the first user message.
+  // Per the privacy advisory, transcripts only live on this device until the
+  // patient ends the session; on End Session we encrypt and ship to the DB.
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    const stored = loadStoredMessages(reportId);
+    if (stored) {
+      setMessages(stored);
+      return;
+    }
+    sendMessage({ text: complaint });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mirror in-progress messages into localStorage so a reload (or the
+  // Continue button on the dashboard) restores the conversation.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (messages.length === 0) return;
+    try {
+      window.localStorage.setItem(
+        transcriptStorageKey(reportId),
+        JSON.stringify(messages),
+      );
+    } catch {
+      // quota exceeded / private mode — non-fatal, chat still works in memory
+    }
+  }, [messages, reportId]);
+
+  const answered = messages.filter((m) => m.role === "user").length;
   const progress = Math.min(
     100,
-    Math.round((answered / TOTAL_QUESTIONS) * 100)
+    Math.round((answered / TYPICAL_QUESTION_COUNT) * 100),
   );
 
-  const confirmEnd = () => {
-    setEndOpen(false);
-    router.push("/patient");
-    toast("Session ended", {
-      description: "The doctor will see what you submitted.",
+  const isThinking = status === "submitted";
+  const isStreaming = status === "streaming";
+  const isBusy = isThinking || isStreaming;
+  const hasError = status === "error";
+
+  const handleEndSession = () => {
+    startEndTransition(async () => {
+      const result = await endSessionAction(
+        reportId,
+        JSON.stringify(messages),
+      );
+      if ("error" in result) {
+        toast.error("Could not end session", { description: result.error });
+        return;
+      }
+      try {
+        window.localStorage.removeItem(transcriptStorageKey(reportId));
+      } catch {
+        // non-fatal
+      }
+      setEndOpen(false);
+      router.push("/patient");
+      toast("Session ended", {
+        description:
+          "We're preparing your summary for the doctor. It will be ready in a moment.",
+      });
     });
   };
 
   const handleSend = () => {
-    setThinking(true);
-    window.setTimeout(() => setThinking(false), 1500);
+    const trimmed = input.trim();
+    if (!trimmed || isBusy) return;
+    sendMessage({ text: trimmed });
+    setInput("");
+  };
+
+  const handleRetry = () => {
+    regenerate();
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-background md:min-h-screen md:flex-row">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-background md:h-screen md:flex-row">
       {/* Mobile top bar */}
       <header className="sticky top-14 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-white px-4 md:hidden">
         <Link
@@ -88,59 +183,67 @@ export function InterviewView({
       </header>
 
       {/* Chat column */}
-      <div className="flex flex-1 flex-col">
-        {/* Desktop top bar with progress strip */}
-        <div className="hidden h-14 shrink-0 items-center justify-between border-b border-border bg-white px-6 md:flex">
-          <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Desktop top bar — the right rail owns session progress, so this
+            stays focused on identity + navigation + end-session affordance. */}
+        <div className="hidden h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-white px-6 md:flex">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Link
               href="/patient"
-              className="-ml-1.5 inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="-ml-1.5 inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Dashboard
             </Link>
-            <span className="h-5 w-px bg-border" />
-            <div className="min-w-0 leading-tight">
-              <p className="text-[15px] font-semibold">Triage interview</p>
-              <p className="mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Session active · ID{" "}
-                <span className="font-mono">{reportId}</span>
+            <span className="h-5 w-px shrink-0 bg-border" />
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-[15px] font-semibold">
+                Triage interview
+              </p>
+              <p className="mt-0.5 hidden items-center gap-1.5 text-[11.5px] text-muted-foreground lg:inline-flex">
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+                <span className="truncate">
+                  Session active · ID{" "}
+                  <span className="font-mono">{reportId.slice(0, 8)}</span>
+                </span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 text-[12px] text-muted-foreground md:flex">
-              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="font-mono font-medium tabular-nums text-foreground">
-                {progress}%
-              </span>
-            </div>
+          {isStreaming ? (
             <Button
               variant="outline"
               size="sm"
+              className="shrink-0"
+              onClick={() => stop()}
+            >
+              Stop
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
               onClick={() => setEndOpen(true)}
             >
               End session
             </Button>
-          </div>
+          )}
         </div>
 
-        <ChatScroll
-          transcript={transcript}
-          state={state}
-          thinking={thinking}
-        />
+        <ChatScroll messages={messages} isThinking={isThinking} />
 
-        {state === "error" ? (
-          <ErrorComposer />
+        {hasError ? (
+          <ErrorComposer
+            message={error?.message ?? "Something went wrong."}
+            onRetry={handleRetry}
+          />
         ) : (
-          <Composer disabled={state === "end"} onSend={handleSend} />
+          <Composer
+            value={input}
+            onChange={setInput}
+            onSend={handleSend}
+            disabled={isBusy}
+          />
         )}
       </div>
 
@@ -152,14 +255,12 @@ export function InterviewView({
           </h3>
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-[12.5px] font-medium">
-              {patientFirstName.slice(0, 1)}O
+              {patientFirstName.slice(0, 1).toUpperCase()}
             </span>
             <div className="leading-tight">
-              <p className="text-[13.5px] font-medium">
-                {patientFirstName} Ogundimu
-              </p>
+              <p className="text-[13.5px] font-medium">{patientFirstName}</p>
               <p className="text-[11.5px] text-muted-foreground">
-                Report <span className="font-mono">{reportId}</span>
+                Report <span className="font-mono">{reportId.slice(0, 8)}</span>
               </p>
             </div>
           </div>
@@ -190,7 +291,7 @@ export function InterviewView({
             />
           </ul>
           <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-            Recorded by the nurse at intake.
+            You recorded these yourself before starting the interview.
           </p>
         </section>
 
@@ -201,7 +302,7 @@ export function InterviewView({
           <div className="rounded-xl bg-muted/50 p-3.5">
             <div className="mb-2 flex items-baseline justify-between">
               <span className="text-[12.5px] font-medium">
-                {answered} of ~{TOTAL_QUESTIONS} questions
+                {answered} of ~{TYPICAL_QUESTION_COUNT} questions
               </span>
               <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                 {progress}%
@@ -225,17 +326,21 @@ export function InterviewView({
             Privacy
           </h3>
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            Only Dr. Okafor and admitted clinicians at Sunshine Medical can see
-            this conversation. It is stored as part of your medical record.
+            Only your assigned clinician at Sunshine Medical can read this
+            conversation. It is stored as part of your medical record.
           </p>
         </section>
 
-        <p className="sr-only">
-          Chief complaint: {complaint}
-        </p>
+        <p className="sr-only">Chief complaint: {complaint}</p>
       </aside>
 
-      <Dialog open={endOpen} onOpenChange={setEndOpen}>
+      <Dialog
+        open={endOpen}
+        onOpenChange={(o) => {
+          if (isEnding) return;
+          setEndOpen(o);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>End this session?</DialogTitle>
@@ -245,11 +350,19 @@ export function InterviewView({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEndOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setEndOpen(false)}
+              disabled={isEnding}
+            >
               Keep going
             </Button>
-            <Button variant="destructive" onClick={confirmEnd}>
-              End session
+            <Button
+              variant="destructive"
+              onClick={handleEndSession}
+              disabled={isEnding}
+            >
+              {isEnding ? "Ending…" : "End session"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -286,32 +399,54 @@ function PatientFriendlyVital({
 }
 
 function ChatScroll({
-  transcript,
-  state,
-  thinking,
+  messages,
+  isThinking,
 }: {
-  transcript: TranscriptTurn[];
-  state: Props["state"];
-  thinking: boolean;
+  messages: UIMessage[];
+  isThinking: boolean;
 }) {
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isThinking]);
+
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
-        {state === "start" && (
-          <div className="my-2 text-center text-[11.5px] text-muted-foreground/70">
-            Session started · just now
-          </div>
-        )}
-        {transcript.map((turn, i) => (
-          <Bubble key={i} turn={turn} />
+        <div className="my-2 text-center text-[11.5px] text-muted-foreground/70">
+          Session started · just now
+        </div>
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
         ))}
-        {thinking && <ThinkingBubble />}
-        {state === "end" && (
-          <>
-            <SummaryBubble />
-            <ReportSentChip />
-          </>
-        )}
+        {isThinking && <ThinkingBubble />}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: UIMessage }) {
+  const text = message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+  if (!text) return null;
+
+  if (message.role === "assistant") {
+    return (
+      <div className="flex max-w-[88%] items-end gap-2 self-start">
+        <AiAvatar />
+        <div className="rounded-2xl rounded-bl-md border border-border bg-white px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap">
+          {text}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex max-w-[88%] justify-end self-end">
+      <div className="rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground">
+        {text}
       </div>
     </div>
   );
@@ -344,56 +479,6 @@ function ThinkingBubble() {
   );
 }
 
-function ReportSentChip() {
-  return (
-    <div className="mx-auto my-3 flex max-w-[95%] items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
-      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-      <span className="text-[12.5px] font-medium text-emerald-900">
-        Report sent to Dr. Okafor
-      </span>
-    </div>
-  );
-}
-
-function Bubble({ turn }: { turn: TranscriptTurn }) {
-  if (turn.role === "ai") {
-    return (
-      <div className="flex max-w-[88%] items-end gap-2 self-start">
-        <AiAvatar />
-        <div className="rounded-2xl rounded-bl-md border border-border bg-white px-3.5 py-2.5 text-[14px] leading-relaxed">
-          {turn.text}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex max-w-[88%] justify-end self-end">
-      <div className="rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-[14px] leading-relaxed text-primary-foreground">
-        {turn.text}
-      </div>
-    </div>
-  );
-}
-
-function SummaryBubble() {
-  return (
-    <div className="flex max-w-[88%] items-end gap-2 self-start">
-      <AiAvatar />
-      <div className="rounded-2xl rounded-bl-md border border-primary/15 bg-primary/5 px-3.5 py-3 text-[14px] leading-relaxed text-foreground">
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
-          Summary for the doctor
-        </p>
-        Thank you. I have enough to brief the doctor. To summarise: you&apos;ve
-        had tight, pressure-like central chest pain for about two hours,
-        radiating to your left arm, currently 7/10, with associated sweating
-        and nausea. You&apos;re a known hypertensive on lisinopril. The doctor
-        will see you shortly. Please stay seated — a nurse is being notified
-        now.
-      </div>
-    </div>
-  );
-}
-
 function AiAvatar() {
   return (
     <span
@@ -414,19 +499,23 @@ function AiAvatar() {
 }
 
 function Composer({
-  disabled,
+  value,
+  onChange,
   onSend,
+  disabled,
 }: {
-  disabled?: boolean;
+  value: string;
+  onChange: (next: string) => void;
   onSend: () => void;
+  disabled?: boolean;
 }) {
-  const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
 
-  const send = () => {
-    if (!text.trim()) return;
-    setText("");
-    onSend();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSend();
+    }
   };
 
   return (
@@ -450,17 +539,10 @@ function Composer({
         <div className="mx-auto flex w-full max-w-[720px] items-end gap-2">
           <div className="flex flex-1 items-end rounded-2xl border border-input bg-white transition-colors focus-within:border-transparent focus-within:ring-2 focus-within:ring-primary">
             <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder={
-                disabled ? "Interview complete." : "Type your reply…"
-              }
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={disabled ? "Waiting for the assistant…" : "Type your reply…"}
               rows={1}
               disabled={disabled}
               className="block min-h-[44px] max-h-32 w-full resize-none bg-transparent px-4 py-2.5 text-[14.5px] leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50"
@@ -476,7 +558,7 @@ function Composer({
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               recording
                 ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-muted text-foreground/80 hover:bg-muted/70 disabled:opacity-50"
+                : "bg-muted text-foreground/80 hover:bg-muted/70 disabled:opacity-50",
             )}
           >
             {recording ? (
@@ -488,8 +570,8 @@ function Composer({
           <button
             type="button"
             aria-label="Send message"
-            onClick={send}
-            disabled={disabled || text.trim().length === 0}
+            onClick={onSend}
+            disabled={disabled || value.trim().length === 0}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
@@ -503,7 +585,13 @@ function Composer({
   );
 }
 
-function ErrorComposer() {
+function ErrorComposer({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   return (
     <div className="border-t border-amber-200 bg-amber-50 px-4 py-4 md:px-8 md:py-5">
       <div className="mx-auto flex w-full max-w-[720px] items-start gap-3">
@@ -513,15 +601,14 @@ function ErrorComposer() {
             <p className="text-[13.5px] font-medium text-amber-900">
               Couldn&apos;t reach the assistant
             </p>
-            <p className="text-[13px] text-amber-800">
-              Your last message wasn&apos;t sent. Tap retry, or let a nurse
-              know — they can finish intake with you on paper.
-            </p>
+            <p className="text-[13px] text-amber-800">{message}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm">Retry</Button>
+            <Button size="sm" onClick={onRetry}>
+              Retry
+            </Button>
             <Button size="sm" variant="outline">
-              Notify nurse
+              Get help at the front desk
             </Button>
           </div>
         </div>
