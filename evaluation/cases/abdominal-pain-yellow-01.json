@@ -1,0 +1,45 @@
+{
+  "id": "abdominal-pain-yellow-01",
+  "chief_complaint": "I have a burning pain in my upper belly and chest and I keep vomiting.",
+  "vitals": {
+    "blood_pressure_systolic": 124,
+    "blood_pressure_diastolic": 78,
+    "temperature_celsius": 38.2,
+    "weight_kg": 71
+  },
+  "demographics": {
+    "age": 44,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "burning pain in the upper abdomen for two days",
+      "pain rises towards the lower chest",
+      "vomiting several times, cannot keep fluids down",
+      "feels feverish",
+      "pain worse after eating",
+      "no blood in the vomit"
+    ],
+    "medical_history": ["acid reflux", "drinks alcohol on weekends"],
+    "medications": ["antacids from the pharmacy"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "moderate persistent pain with vomiting and fever, cannot keep fluids down"
+    ],
+    "communication_style": "uncomfortable, occasionally retching during conversation"
+  },
+  "expected": {
+    "chart": "Abdominal Pain",
+    "triage_level": "yellow",
+    "key_symptoms_to_capture": [
+      "burning upper abdominal pain",
+      "repeated vomiting",
+      "cannot keep fluids down",
+      "feverish"
+    ],
+    "red_flags_to_capture": [
+      "Moderate persistent pain with vomiting/fever/can't keep fluids"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "chest-pain-orange-01",
+  "chief_complaint": "I have a heavy feeling on my chest that goes to my left arm, started 2 hours ago.",
+  "vitals": {
+    "blood_pressure_systolic": 150,
+    "blood_pressure_diastolic": 95,
+    "temperature_celsius": 37.0,
+    "weight_kg": 82
+  },
+  "demographics": {
+    "age": 55,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "heavy pressure feeling in the centre of the chest",
+      "pain spreading to the left arm",
+      "sweating a lot",
+      "feeling nauseous",
+      "mild shortness of breath",
+      "felt clammy and pale"
+    ],
+    "medical_history": ["high blood pressure", "high cholesterol"],
+    "medications": ["amlodipine 10mg daily", "atorvastatin 20mg at night"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "crushing pressure chest pain with sweating and nausea",
+      "pain radiating to the left arm",
+      "pallor"
+    ],
+    "communication_style": "worried but cooperative, gives clear answers"
+  },
+  "expected": {
+    "chart": "Chest Pain",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "heavy pressure chest pain",
+      "radiation to left arm",
+      "sweating",
+      "nausea"
+    ],
+    "red_flags_to_capture": [
+      "Crushing/pressure pain with sweating, nausea, pallor",
+      "radiation to arm"
+    ]
+  }
+}

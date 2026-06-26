@@ -1,0 +1,47 @@
+{
+  "id": "limb-injury-orange-01",
+  "chief_complaint": "I fell off my motorbike and my lower leg is bent the wrong way and the foot feels cold.",
+  "vitals": {
+    "blood_pressure_systolic": 130,
+    "blood_pressure_diastolic": 84,
+    "temperature_celsius": 37.0,
+    "weight_kg": 76
+  },
+  "demographics": {
+    "age": 33,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "obvious deformity of the lower right leg after a fall",
+      "severe pain not relieved by painkillers",
+      "the foot below the injury feels cold and pale",
+      "cannot feel or move the toes properly",
+      "swelling around the injury"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["took two paracetamol with no relief"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "obvious deformity with cold, pale, pulseless limb",
+      "loss of sensation and movement after injury",
+      "severe pain not relieved by painkillers"
+    ],
+    "communication_style": "in a lot of pain, grimacing, answers in short bursts"
+  },
+  "expected": {
+    "chart": "Limb Injury",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "obvious leg deformity after fall",
+      "cold pale foot",
+      "loss of sensation and movement in toes",
+      "severe pain not relieved by painkillers"
+    ],
+    "red_flags_to_capture": [
+      "Obvious deformity, open fracture, or cold/pale/pulseless limb",
+      "Loss of sensation or movement after injury"
+    ]
+  }
+}

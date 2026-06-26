@@ -1,0 +1,46 @@
+{
+  "id": "back-pain-orange-01",
+  "chief_complaint": "My lower back is really painful and now I can't feel properly around my groin and I'm leaking urine.",
+  "vitals": {
+    "blood_pressure_systolic": 132,
+    "blood_pressure_diastolic": 84,
+    "temperature_celsius": 37.1,
+    "weight_kg": 90
+  },
+  "demographics": {
+    "age": 52,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "severe lower back pain for two days",
+      "numbness around the groin and inner thighs",
+      "loss of bladder control with leaking urine",
+      "weakness in both legs",
+      "trouble walking"
+    ],
+    "medical_history": ["slipped disc treated years ago"],
+    "medications": ["paracetamol", "ibuprofen"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "saddle (groin/inner-thigh) numbness",
+      "loss of bladder control",
+      "new leg weakness"
+    ],
+    "communication_style": "anxious, embarrassed about the urinary symptoms"
+  },
+  "expected": {
+    "chart": "Back Pain",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "severe lower back pain",
+      "groin and inner-thigh numbness",
+      "loss of bladder control",
+      "leg weakness"
+    ],
+    "red_flags_to_capture": [
+      "New leg weakness, groin/inner-thigh numbness, or loss of bowel/bladder control (cauda equina)"
+    ]
+  }
+}

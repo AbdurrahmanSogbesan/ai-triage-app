@@ -1,0 +1,39 @@
+{
+  "id": "limb-injury-green-01",
+  "chief_complaint": "I twisted my ankle playing football yesterday and it's a bit swollen.",
+  "vitals": {
+    "blood_pressure_systolic": 120,
+    "blood_pressure_diastolic": 76,
+    "temperature_celsius": 36.7,
+    "weight_kg": 69
+  },
+  "demographics": {
+    "age": 22,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "twisted right ankle yesterday",
+      "mild swelling on the outer ankle",
+      "some bruising",
+      "can still walk with a slight limp",
+      "discomfort but tolerable"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["ibuprofen, helped a bit"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [],
+    "communication_style": "casual, not very worried"
+  },
+  "expected": {
+    "chart": "Limb Injury",
+    "triage_level": "green",
+    "key_symptoms_to_capture": [
+      "twisted ankle",
+      "mild swelling and bruising",
+      "can still bear weight"
+    ],
+    "red_flags_to_capture": []
+  }
+}

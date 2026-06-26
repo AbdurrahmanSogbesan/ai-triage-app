@@ -1,0 +1,47 @@
+{
+  "id": "shortness-of-breath-red-01",
+  "chief_complaint": "I no fit breathe well, I dey gasp, my body dey turn weak.",
+  "vitals": {
+    "blood_pressure_systolic": 104,
+    "blood_pressure_diastolic": 66,
+    "temperature_celsius": 37.3,
+    "weight_kg": 72
+  },
+  "demographics": {
+    "age": 34,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "severe breathlessness, gasping for air",
+      "cannot speak more than one word at a time",
+      "lips and fingertips turning blue",
+      "loud wheezing",
+      "using neck and shoulder muscles to breathe",
+      "feeling faint"
+    ],
+    "medical_history": ["asthma since childhood"],
+    "medications": ["salbutamol inhaler", "beclometasone inhaler"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "cannot speak, gasping, severe respiratory distress",
+      "cyanosis (blue lips and fingertips)"
+    ],
+    "communication_style": "uses Nigerian Pidgin, can only manage single words because of breathlessness"
+  },
+  "expected": {
+    "chart": "Shortness of Breath",
+    "triage_level": "red",
+    "key_symptoms_to_capture": [
+      "gasping, cannot speak in sentences",
+      "blue lips",
+      "loud wheeze",
+      "using accessory muscles"
+    ],
+    "red_flags_to_capture": [
+      "Can't speak/gasping/severe distress",
+      "Cyanosis or SpO2<90%"
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "fever-orange-01",
+  "chief_complaint": "I just feel a little hot and tired, nothing serious, I only came because my wife forced me.",
+  "vitals": {
+    "blood_pressure_systolic": 200,
+    "blood_pressure_diastolic": 115,
+    "temperature_celsius": 39.8,
+    "weight_kg": 92
+  },
+  "demographics": {
+    "age": 61,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "feels warm and a bit tired",
+      "downplays the symptoms as a small malaria",
+      "fast breathing when he climbs stairs",
+      "heart feels like it is racing",
+      "mild headache",
+      "has not checked his blood pressure in a long time"
+    ],
+    "medical_history": ["high blood pressure, stopped taking tablets months ago", "diabetes"],
+    "medications": ["none currently"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "very high fever above 39 degrees",
+      "dangerously high blood pressure with fast heart rate and fast breathing"
+    ],
+    "communication_style": "minimises everything, insists he is fine"
+  },
+  "expected": {
+    "chart": "Fever in Adults",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "feverish and warm",
+      "racing heart",
+      "fast breathing on exertion",
+      "headache"
+    ],
+    "red_flags_to_capture": [
+      "Fever with very fast breathing/HR or low BP"
+    ]
+  }
+}

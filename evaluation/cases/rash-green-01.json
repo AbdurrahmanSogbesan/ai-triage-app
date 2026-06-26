@@ -1,0 +1,40 @@
+{
+  "id": "rash-green-01",
+  "chief_complaint": "I have an itchy red patch on my arm that's been there a couple of days.",
+  "vitals": {
+    "blood_pressure_systolic": 119,
+    "blood_pressure_diastolic": 75,
+    "temperature_celsius": 36.9,
+    "weight_kg": 66
+  },
+  "demographics": {
+    "age": 35,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "a localised red itchy patch on the left forearm",
+      "started after using a new soap",
+      "mild itch",
+      "no spreading beyond the forearm",
+      "no fever",
+      "no swelling of lips or face and no breathing trouble"
+    ],
+    "medical_history": ["mild eczema as a child"],
+    "medications": ["none"],
+    "allergies": ["possible reaction to fragranced soaps"],
+    "red_flags_present": [],
+    "communication_style": "relaxed, chatty"
+  },
+  "expected": {
+    "chart": "Rash",
+    "triage_level": "green",
+    "key_symptoms_to_capture": [
+      "localised itchy red patch",
+      "started after new soap",
+      "no systemic symptoms"
+    ],
+    "red_flags_to_capture": []
+  }
+}

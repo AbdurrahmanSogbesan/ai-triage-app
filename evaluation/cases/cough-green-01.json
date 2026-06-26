@@ -1,0 +1,39 @@
+{
+  "id": "cough-green-01",
+  "chief_complaint": "I have a chesty cough and a bit of a runny nose for the last few days.",
+  "vitals": {
+    "blood_pressure_systolic": 118,
+    "blood_pressure_diastolic": 76,
+    "temperature_celsius": 37.4,
+    "weight_kg": 68
+  },
+  "demographics": {
+    "age": 29,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "productive cough with clear phlegm",
+      "runny nose",
+      "mild sore throat",
+      "slight tiredness",
+      "no breathlessness"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["paracetamol occasionally"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [],
+    "communication_style": "relaxed, conversational"
+  },
+  "expected": {
+    "chart": "Cough",
+    "triage_level": "green",
+    "key_symptoms_to_capture": [
+      "productive cough",
+      "runny nose",
+      "mild sore throat"
+    ],
+    "red_flags_to_capture": []
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "abdominal-pain-orange-01",
+  "chief_complaint": "My belle dey pain me well well since morning, e be like say e wan tear me.",
+  "vitals": {
+    "blood_pressure_systolic": 138,
+    "blood_pressure_diastolic": 88,
+    "temperature_celsius": 37.6,
+    "weight_kg": 58
+  },
+  "demographics": {
+    "age": 27,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "sudden severe lower abdominal pain since this morning",
+      "pain mostly on the right side, low down",
+      "some vaginal spotting",
+      "feeling lightheaded when standing",
+      "shoulder-tip discomfort",
+      "last period was about seven weeks ago"
+    ],
+    "medical_history": ["no chronic illness", "sexually active, not on contraception"],
+    "medications": ["none"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "sudden severe pain in a woman of reproductive age with vaginal bleeding",
+      "lightheadedness suggesting possible early shock"
+    ],
+    "communication_style": "uses Nigerian Pidgin, speaks quickly, clearly in pain"
+  },
+  "expected": {
+    "chart": "Abdominal Pain",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "sudden severe lower abdominal pain",
+      "vaginal spotting",
+      "missed period",
+      "lightheaded on standing"
+    ],
+    "red_flags_to_capture": [
+      "Sudden severe pain in woman of reproductive age with vaginal bleeding"
+    ]
+  }
+}

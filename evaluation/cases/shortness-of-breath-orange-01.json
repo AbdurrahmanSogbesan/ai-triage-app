@@ -1,0 +1,45 @@
+{
+  "id": "shortness-of-breath-orange-01",
+  "chief_complaint": "I got suddenly breathless and my right calf is swollen and painful.",
+  "vitals": {
+    "blood_pressure_systolic": 128,
+    "blood_pressure_diastolic": 82,
+    "temperature_celsius": 37.4,
+    "weight_kg": 86
+  },
+  "demographics": {
+    "age": 58,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "sudden breathlessness since this morning",
+      "swollen, tender right calf",
+      "sharp chest pain when breathing in",
+      "fast heartbeat",
+      "recently had a long flight and was bedbound after surgery"
+    ],
+    "medical_history": ["knee surgery three weeks ago", "overweight"],
+    "medications": ["paracetamol"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "acute breathlessness with leg swelling and recent immobility",
+      "pleuritic chest pain"
+    ],
+    "communication_style": "speaks in moderate sentences, pauses for breath"
+  },
+  "expected": {
+    "chart": "Shortness of Breath",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "sudden breathlessness",
+      "swollen tender calf",
+      "recent immobility after surgery",
+      "chest pain on breathing"
+    ],
+    "red_flags_to_capture": [
+      "Acute breathlessness with leg swelling or recent immobility"
+    ]
+  }
+}

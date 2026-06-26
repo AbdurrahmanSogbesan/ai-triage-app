@@ -1,0 +1,44 @@
+{
+  "id": "back-pain-yellow-01",
+  "chief_complaint": "I have bad back pain that shoots down my right leg past my knee.",
+  "vitals": {
+    "blood_pressure_systolic": 128,
+    "blood_pressure_diastolic": 82,
+    "temperature_celsius": 36.9,
+    "weight_kg": 84
+  },
+  "demographics": {
+    "age": 49,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "lower back pain for one week",
+      "sharp pain shooting down the right leg below the knee",
+      "tingling in the right foot",
+      "pain worse when sitting",
+      "no problems passing urine or stool",
+      "normal strength in both legs"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["ibuprofen as needed"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "pain radiating down one leg below the knee with tingling"
+    ],
+    "communication_style": "uncomfortable, shifts position while talking"
+  },
+  "expected": {
+    "chart": "Back Pain",
+    "triage_level": "yellow",
+    "key_symptoms_to_capture": [
+      "back pain radiating below the knee",
+      "tingling in the foot",
+      "worse when sitting"
+    ],
+    "red_flags_to_capture": [
+      "Pain radiating down one leg below the knee with tingling"
+    ]
+  }
+}

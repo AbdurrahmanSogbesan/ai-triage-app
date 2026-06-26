@@ -1,0 +1,40 @@
+{
+  "id": "unwell-blue-01",
+  "chief_complaint": "I've just been feeling tired for weeks, no energy.",
+  "vitals": {
+    "blood_pressure_systolic": 115,
+    "blood_pressure_diastolic": 70,
+    "temperature_celsius": 36.7,
+    "weight_kg": 70
+  },
+  "demographics": {
+    "age": 25,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "general tiredness for several weeks",
+      "low energy by the afternoon",
+      "sleeping poorly because of work stress",
+      "appetite normal",
+      "no weight loss",
+      "no fever"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["none"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [],
+    "communication_style": "low-key, a bit flat, gives brief answers"
+  },
+  "expected": {
+    "chart": "Unwell Adult",
+    "triage_level": "blue",
+    "key_symptoms_to_capture": [
+      "tiredness for weeks",
+      "low energy",
+      "poor sleep due to stress"
+    ],
+    "red_flags_to_capture": []
+  }
+}

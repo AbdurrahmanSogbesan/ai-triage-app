@@ -1,0 +1,45 @@
+{
+  "id": "cough-yellow-01",
+  "chief_complaint": "I've been coughing for three weeks now, sometimes I see blood.",
+  "vitals": {
+    "blood_pressure_systolic": 120,
+    "blood_pressure_diastolic": 80,
+    "temperature_celsius": 38.5,
+    "weight_kg": 75
+  },
+  "demographics": {
+    "age": 42,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "persistent cough for over three weeks",
+      "blood-streaked sputum on some mornings",
+      "drenching night sweats",
+      "lost weight without trying",
+      "low-grade evening fevers",
+      "tiredness"
+    ],
+    "medical_history": ["no chronic illness", "uncle treated for TB last year"],
+    "medications": ["over-the-counter cough syrup"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "persistent cough over 3 weeks with weight loss, night sweats and blood-streaked sputum"
+    ],
+    "communication_style": "calm, gives a clear timeline"
+  },
+  "expected": {
+    "chart": "Cough",
+    "triage_level": "yellow",
+    "key_symptoms_to_capture": [
+      "cough for three weeks",
+      "blood-streaked sputum",
+      "night sweats",
+      "weight loss"
+    ],
+    "red_flags_to_capture": [
+      "Persistent cough >3 weeks with weight loss, night sweats, or blood-streaked sputum"
+    ]
+  }
+}

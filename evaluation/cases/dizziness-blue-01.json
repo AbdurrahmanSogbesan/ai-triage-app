@@ -1,0 +1,40 @@
+{
+  "id": "dizziness-blue-01",
+  "chief_complaint": "Sometimes I feel a bit unwell and lightheaded when I stand up too fast, like always.",
+  "vitals": {
+    "blood_pressure_systolic": 116,
+    "blood_pressure_diastolic": 74,
+    "temperature_celsius": 36.6,
+    "weight_kg": 62
+  },
+  "demographics": {
+    "age": 68,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "brief lightheadedness when standing up quickly",
+      "has had this for years, unchanged",
+      "settles within a few seconds",
+      "never actually fainted",
+      "no chest pain, palpitations or breathlessness",
+      "no weakness or speech problems"
+    ],
+    "medical_history": ["mild long-standing low blood pressure"],
+    "medications": ["none"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [],
+    "communication_style": "calm, almost dismissive, just wants reassurance"
+  },
+  "expected": {
+    "chart": "Dizziness or Syncope",
+    "triage_level": "blue",
+    "key_symptoms_to_capture": [
+      "lightheaded on standing",
+      "resolves within seconds",
+      "long-standing and unchanged"
+    ],
+    "red_flags_to_capture": []
+  }
+}

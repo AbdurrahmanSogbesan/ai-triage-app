@@ -1,0 +1,46 @@
+{
+  "id": "headache-red-01",
+  "chief_complaint": "My brother had a sudden terrible headache and now he is barely responding to us.",
+  "vitals": {
+    "blood_pressure_systolic": 122,
+    "blood_pressure_diastolic": 80,
+    "temperature_celsius": 37.0,
+    "weight_kg": 78
+  },
+  "demographics": {
+    "age": 47,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "sudden explosive headache an hour ago",
+      "became very drowsy and confused",
+      "only mumbles and will not stay awake",
+      "vomited twice",
+      "not making sense when spoken to"
+    ],
+    "medical_history": ["high blood pressure, poorly controlled"],
+    "medications": ["irregular use of antihypertensives"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "decreased consciousness, unresponsive",
+      "sudden severe headache reaching maximum intensity within minutes",
+      "repeated vomiting with worsening drowsiness"
+    ],
+    "communication_style": "reported by family; patient too drowsy to answer"
+  },
+  "expected": {
+    "chart": "Headache",
+    "triage_level": "red",
+    "key_symptoms_to_capture": [
+      "sudden severe headache",
+      "drowsy and confused",
+      "barely responding",
+      "vomiting"
+    ],
+    "red_flags_to_capture": [
+      "Decreased consciousness/unresponsive"
+    ]
+  }
+}

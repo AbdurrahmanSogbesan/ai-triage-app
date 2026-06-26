@@ -43,3 +43,7 @@ supabase/.branches/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# evaluation harness output — local-only run artifacts (per-case JSON logs,
+# summary.json, report.md). The harness code and synthetic cases stay tracked.
+evaluation/results/

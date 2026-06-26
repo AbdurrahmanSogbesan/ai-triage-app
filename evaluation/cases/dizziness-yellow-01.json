@@ -1,0 +1,45 @@
+{
+  "id": "dizziness-yellow-01",
+  "chief_complaint": "I feel unwell and dizzy and I keep vomiting.",
+  "vitals": {
+    "blood_pressure_systolic": 126,
+    "blood_pressure_diastolic": 80,
+    "temperature_celsius": 37.1,
+    "weight_kg": 64
+  },
+  "demographics": {
+    "age": 46,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "intense spinning sensation since this morning",
+      "vomiting repeatedly with the dizziness",
+      "the room spins when she turns her head",
+      "unsteady on her feet",
+      "no chest pain or palpitations",
+      "no weakness, numbness or slurred speech"
+    ],
+    "medical_history": ["had a similar milder episode last year"],
+    "medications": ["none"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "severe vertigo with persistent vomiting"
+    ],
+    "communication_style": "keeps eyes closed, speaks slowly to avoid triggering the spinning"
+  },
+  "expected": {
+    "chart": "Dizziness or Syncope",
+    "triage_level": "yellow",
+    "key_symptoms_to_capture": [
+      "spinning sensation (vertigo)",
+      "persistent vomiting",
+      "unsteady on feet",
+      "worse on head movement"
+    ],
+    "red_flags_to_capture": [
+      "Severe vertigo with persistent vomiting"
+    ]
+  }
+}

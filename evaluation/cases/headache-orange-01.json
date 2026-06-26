@@ -1,0 +1,48 @@
+{
+  "id": "headache-orange-01",
+  "chief_complaint": "I suddenly got the worst headache of my life about 30 minutes ago.",
+  "vitals": {
+    "blood_pressure_systolic": 135,
+    "blood_pressure_diastolic": 85,
+    "temperature_celsius": 37.2,
+    "weight_kg": 65
+  },
+  "demographics": {
+    "age": 38,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "sudden explosive headache that peaked within a minute",
+      "worst headache ever experienced",
+      "pain at the back of the head and neck",
+      "feeling sick to the stomach",
+      "light hurting the eyes",
+      "some neck stiffness"
+    ],
+    "medical_history": ["occasional tension headaches"],
+    "medications": ["paracetamol as needed"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "sudden severe headache reaching maximum intensity within minutes (thunderclap)",
+      "neck stiffness",
+      "photophobia"
+    ],
+    "communication_style": "distressed, holding her head, answers in short sentences"
+  },
+  "expected": {
+    "chart": "Headache",
+    "triage_level": "orange",
+    "key_symptoms_to_capture": [
+      "sudden worst headache of life",
+      "peaked within minutes",
+      "neck stiffness",
+      "light hurting eyes"
+    ],
+    "red_flags_to_capture": [
+      "Sudden severe headache max intensity within minutes (thunderclap)",
+      "neck stiffness"
+    ]
+  }
+}

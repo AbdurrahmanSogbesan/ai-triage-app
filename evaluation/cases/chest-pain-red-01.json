@@ -1,0 +1,47 @@
+{
+  "id": "chest-pain-red-01",
+  "chief_complaint": "My husband has crushing chest pain and now he can barely breathe or talk.",
+  "vitals": {
+    "blood_pressure_systolic": 90,
+    "blood_pressure_diastolic": 60,
+    "temperature_celsius": 36.8,
+    "weight_kg": 88
+  },
+  "demographics": {
+    "age": 64,
+    "sex": "male",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "severe crushing chest pain",
+      "gasping for air",
+      "cannot finish a sentence",
+      "lips looking blue",
+      "very sweaty and grey",
+      "feeling like passing out"
+    ],
+    "medical_history": ["previous heart attack", "diabetes"],
+    "medications": ["aspirin 75mg daily", "metformin 1g twice daily", "bisoprolol 5mg daily"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [
+      "severe respiratory distress, cannot complete sentences",
+      "cyanosis (blue lips)",
+      "near-collapse"
+    ],
+    "communication_style": "spoken by panicked spouse, patient too breathless to talk"
+  },
+  "expected": {
+    "chart": "Chest Pain",
+    "triage_level": "red",
+    "key_symptoms_to_capture": [
+      "severe crushing chest pain",
+      "cannot complete sentences",
+      "blue lips",
+      "near collapse"
+    ],
+    "red_flags_to_capture": [
+      "Severe respiratory distress, can't complete sentences"
+    ]
+  }
+}

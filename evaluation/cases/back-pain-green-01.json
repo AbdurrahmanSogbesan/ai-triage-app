@@ -1,0 +1,39 @@
+{
+  "id": "back-pain-green-01",
+  "chief_complaint": "My lower back has been hurting since I lifted something heavy two days ago.",
+  "vitals": {
+    "blood_pressure_systolic": 118,
+    "blood_pressure_diastolic": 72,
+    "temperature_celsius": 36.8,
+    "weight_kg": 60
+  },
+  "demographics": {
+    "age": 30,
+    "sex": "female",
+    "preferred_language": "English"
+  },
+  "patient_persona": {
+    "symptoms": [
+      "aching lower back pain after lifting a heavy bag",
+      "pain worse with bending",
+      "muscles feel tight",
+      "eases with rest and paracetamol",
+      "no pain going down the legs"
+    ],
+    "medical_history": ["no chronic illness"],
+    "medications": ["paracetamol as needed"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": [],
+    "communication_style": "matter-of-fact, calm"
+  },
+  "expected": {
+    "chart": "Back Pain",
+    "triage_level": "green",
+    "key_symptoms_to_capture": [
+      "lower back pain after lifting",
+      "worse with bending",
+      "eases with rest"
+    ],
+    "red_flags_to_capture": []
+  }
+}

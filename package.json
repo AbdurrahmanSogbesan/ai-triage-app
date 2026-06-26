@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "evaluate": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/run-evaluation.ts",
+    "evaluate:metrics": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/evaluate-metrics.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.79",
@@ -40,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
