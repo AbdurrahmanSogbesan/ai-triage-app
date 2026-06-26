@@ -36,9 +36,9 @@
     "triage_level": "red",
     "key_symptoms_to_capture": [
       "severe crushing chest pain",
-      "cannot complete sentences",
+      "difficulty speaking",
       "blue lips",
-      "near collapse"
+      "impending syncope"
     ],
     "red_flags_to_capture": [
       "Severe respiratory distress, can't complete sentences"

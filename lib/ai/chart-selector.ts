@@ -34,7 +34,9 @@ Pick the single best-fitting Manchester Triage System chart for the patient's pr
 
 If the complaint does not clearly fit any of the listed charts — for example eye, urinary, dental, or obstetric/gynaecological issues — choose "Unwell Adult" instead of forcing a poor fit.
 
-If the complaint is ambiguous between two charts, pick the one with higher acuity.
+If the complaint mentions multiple body areas (e.g. "pain in my belly and chest"), do NOT select a chart based on a single keyword. Consider the full symptom cluster: what is the PRIMARY site of the pain, what are the associated symptoms (vomiting, sweating, radiation pattern), and does the presentation pattern match a gastric/abdominal origin or a cardiac one? For example, "burning upper abdominal pain with vomiting that also affects the chest" is more likely Abdominal Pain than Chest Pain. Select based on the overall clinical picture, not the most alarming individual word.
+
+If the complaint is genuinely ambiguous after considering the full cluster, then pick the chart with higher acuity.
 
 Return the chart name exactly as it appears in the list, and a one-sentence rationale.`;
 

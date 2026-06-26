@@ -32,12 +32,12 @@
   },
   "expected": {
     "chart": "Abdominal Pain",
-    "triage_level": "orange",
+    "triage_level": "red",
     "key_symptoms_to_capture": [
       "sudden severe lower abdominal pain",
       "vaginal spotting",
-      "missed period",
-      "lightheaded on standing"
+      "last menstrual period",
+      "lightheadedness on standing"
     ],
     "red_flags_to_capture": [
       "Sudden severe pain in woman of reproductive age with vaginal bleeding"

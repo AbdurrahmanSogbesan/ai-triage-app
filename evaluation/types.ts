@@ -3,7 +3,7 @@
 // The harness runs synthetic patient cases through the real AI triage pipeline
 // (lib/ai/*) headlessly and records every intermediate output plus a per-case
 // metric comparison. See run-evaluation.ts for orchestration and
-// evaluate-metrics.ts for the aggregate thesis metrics.
+// evaluate-metrics.ts for the aggregate evaluation metrics.
 
 import type { RefereeOutput, SoapReport } from "@/lib/ai/schemas";
 import type { TriageLevel } from "@/lib/ai/mts-charts";
@@ -101,7 +101,7 @@ export interface CaseRunOutputs {
   evaluation: PerCaseEvaluation;
 }
 
-/** Aggregate metrics: summary.json (§3.6 of the thesis). */
+/** Aggregate metrics written to summary.json. */
 export interface EvaluationSummary {
   run_timestamp: string;
   total_cases: number;
@@ -109,7 +109,7 @@ export interface EvaluationSummary {
   evaluable_cases: number;
   error_cases: number;
 
-  // §3.6.1 Triage Accuracy
+  // Triage accuracy
   triage_accuracy: number;
   over_triage_rate: number;
   under_triage_rate: number;
@@ -118,7 +118,7 @@ export interface EvaluationSummary {
   // Chart Selection Accuracy
   chart_selection_accuracy: number;
 
-  // §3.6.2 Extraction Precision
+  // Extraction precision
   symptom_capture_rate: number;
   red_flag_capture_rate: number;
   per_case_extraction: {
@@ -129,7 +129,7 @@ export interface EvaluationSummary {
     red_flags_captured: number;
   }[];
 
-  // §3.6.3 Confidence Score Reliability
+  // Confidence score reliability
   confidence_by_band: {
     band: ConfidenceBand;
     case_count: number;

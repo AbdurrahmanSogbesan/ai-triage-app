@@ -6,11 +6,15 @@
 //   tsx evaluation/evaluate-metrics.ts --run <timestamp>
 //
 // The CLI reads every per-case evaluation.json under a run directory, computes
-// the three thesis metrics (§3.6) plus chart-selection accuracy, and writes
+// the three core evaluation metrics plus chart-selection accuracy, and writes
 // summary.json + a human-readable report.md.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+
+import { google } from "@ai-sdk/google";
+import { generateObject } from "ai";
+import { z } from "zod";
 
 import { TRIAGE_LEVELS, type TriageLevel } from "@/lib/ai/mts-charts";
 import type { RefereeOutput, SoapReport } from "@/lib/ai/schemas";
@@ -60,7 +64,7 @@ export function confidenceBand(score: number): ConfidenceBand {
 }
 
 // ---------------------------------------------------------------------------
-// Fuzzy keyword matching for extraction precision (§3.6.2)
+// Fuzzy keyword matching for extraction precision
 // ---------------------------------------------------------------------------
 
 const STOPWORDS = new Set([
@@ -89,7 +93,7 @@ function tokenize(text: string): string[] {
 }
 
 /**
- * Keyword heuristic from the handoff: lowercase both sides, require at least
+ * Keyword heuristic: lowercase both sides, require at least
  * two meaningful (non-stopword) stems from the expected phrase to appear in the
  * blob. Phrases with only one meaningful word require that single stem.
  */
@@ -211,7 +215,7 @@ export function evaluateCase(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Aggregate summary (§3.6)
+// Aggregate summary
 // ---------------------------------------------------------------------------
 
 export function computeSummary(
@@ -222,7 +226,7 @@ export function computeSummary(
   const evaluable = evaluations.filter((e) => e.triage.actual !== null);
   const errorCases = evaluations.filter((e) => e.status === "error").length;
 
-  // §3.6.1 Triage accuracy — denominator is the full case set; cases without a
+  // Triage accuracy — denominator is the full case set; cases without a
   // SOAP count as neither over- nor under-triaged but do lower accuracy.
   const correct = evaluations.filter((e) => e.triage.correct).length;
   const over = evaluations.filter(
@@ -248,7 +252,7 @@ export function computeSummary(
 
   const chartCorrect = evaluations.filter((e) => e.chart.correct).length;
 
-  // §3.6.2 Extraction precision — pooled across all cases.
+  // Extraction precision — pooled across all cases.
   let symptomsExpected = 0;
   let symptomsCaptured = 0;
   let redFlagsExpected = 0;
@@ -267,7 +271,7 @@ export function computeSummary(
     };
   });
 
-  // §3.6.3 Confidence reliability — error rate per band should rise as the
+  // Confidence reliability — error rate per band should rise as the
   // band falls (high < moderate < low).
   const bands: ConfidenceBand[] = ["high", "moderate", "low"];
   const confidenceByBand = bands.map((band) => {
@@ -363,7 +367,7 @@ export function renderReport(
   lines.push("");
 
   // Confusion matrix
-  lines.push(`## §3.6.1 Triage confusion matrix`);
+  lines.push(`## Triage confusion matrix`);
   lines.push("");
   lines.push(`Rows = expected, columns = actual (evaluable cases only).`);
   lines.push("");
@@ -379,7 +383,7 @@ export function renderReport(
   lines.push("");
 
   // Confidence reliability
-  lines.push(`## §3.6.3 Confidence score reliability`);
+  lines.push(`## Confidence score reliability`);
   lines.push("");
   lines.push(`Error rate should rise as the band falls (high → low).`);
   lines.push("");
@@ -429,6 +433,150 @@ export function renderReport(
 }
 
 // ---------------------------------------------------------------------------
+// LLM-based matching (--llm-match): re-scores extraction precision against the
+// stored SOAP reports using a yes/no judgement per expected item, so paraphrases
+// ("room spinning" vs "the room was spinning") count as captured. Chart/triage/
+// confidence are left untouched — only symptom + red-flag capture are re-derived.
+// ---------------------------------------------------------------------------
+
+const MATCH_MODEL_ID = "gemini-2.5-flash";
+
+const matchSchema = z.object({
+  present: z
+    .array(z.boolean())
+    .describe("One boolean per item, in the same order as the items given."),
+});
+
+/**
+ * Asks the model, for each item, whether the concept appears in the SOAP text
+ * (paraphrases / synonyms / clinical equivalents count). Returns a boolean per
+ * item aligned by index. Throws on a length mismatch so the caller can fall
+ * back to the keyword matcher for that case rather than mis-aligning results.
+ */
+async function matchItemsLlm(
+  contextLabel: string,
+  contextText: string,
+  items: string[],
+): Promise<boolean[]> {
+  if (items.length === 0) return [];
+  const { object } = await generateObject({
+    model: google(MATCH_MODEL_ID),
+    schema: matchSchema,
+    schemaName: "ItemMatch",
+    schemaDescription:
+      "For each clinical item, whether it is present in the provided SOAP text.",
+    system:
+      "You are a clinical evaluator checking whether a SOAP report captured specific clinical concepts. For each item, decide whether the concept is mentioned or described anywhere in the provided text, even if worded differently — paraphrases, synonyms, and clear clinical equivalents all count as present. Judge only from the text; do not infer beyond it.",
+    prompt: [
+      `${contextLabel}:`,
+      contextText,
+      "",
+      "For EACH item below, is that clinical concept present in the text above?",
+      "Return the `present` array with exactly one boolean per item, in the same order.",
+      "",
+      "Items:",
+      ...items.map((it, i) => `${i + 1}. ${it}`),
+    ].join("\n"),
+    temperature: 0,
+    providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
+  });
+  if (object.present.length !== items.length) {
+    throw new Error(
+      `LLM match returned ${object.present.length} results for ${items.length} items`,
+    );
+  }
+  return object.present;
+}
+
+/**
+ * Re-derives one case's symptom + red-flag capture using LLM matching against
+ * the stored SOAP. Falls back to the keyword matcher for a section if the LLM
+ * call fails. Returns a fresh PerCaseEvaluation; chart/triage/confidence are
+ * copied verbatim from the keyword-based evaluation.
+ */
+async function reEvaluateCaseWithLlm(
+  existing: PerCaseEvaluation,
+  soap: SoapReport | null,
+): Promise<PerCaseEvaluation> {
+  const symptomsExpected = existing.symptoms.expected;
+  const redFlagsExpected = existing.red_flags.expected;
+
+  let symptomsCaptured: string[];
+  let redFlagsCaptured: string[];
+
+  if (!soap) {
+    symptomsCaptured = [];
+    redFlagsCaptured = [];
+  } else {
+    const subj = subjectiveBlob(soap);
+    const assess = assessmentBlob(soap);
+
+    try {
+      const flags = await matchItemsLlm(
+        "SOAP subjective section",
+        subj,
+        symptomsExpected,
+      );
+      symptomsCaptured = symptomsExpected.filter((_, i) => flags[i]);
+    } catch (err) {
+      console.warn(
+        `[metrics] LLM symptom match failed for ${existing.case_id}, using keyword: ${err instanceof Error ? err.message : err}`,
+      );
+      symptomsCaptured = symptomsExpected.filter((s) => fuzzyContains(subj, s));
+    }
+
+    try {
+      const flags = await matchItemsLlm(
+        "SOAP assessment and plan",
+        assess,
+        redFlagsExpected,
+      );
+      redFlagsCaptured = redFlagsExpected.filter((_, i) => flags[i]);
+    } catch (err) {
+      console.warn(
+        `[metrics] LLM red-flag match failed for ${existing.case_id}, using keyword: ${err instanceof Error ? err.message : err}`,
+      );
+      redFlagsCaptured = redFlagsExpected.filter((f) => fuzzyContains(assess, f));
+    }
+  }
+
+  return {
+    ...existing,
+    symptoms: {
+      expected: symptomsExpected,
+      captured: symptomsCaptured,
+      missed: symptomsExpected.filter((s) => !symptomsCaptured.includes(s)),
+    },
+    red_flags: {
+      expected: redFlagsExpected,
+      captured: redFlagsCaptured,
+      missed: redFlagsExpected.filter((f) => !redFlagsCaptured.includes(f)),
+    },
+  };
+}
+
+/** Reads the stored SOAP for a case, or null if absent / an error stub. */
+async function readSoap(
+  runDir: string,
+  caseId: string,
+): Promise<SoapReport | null> {
+  try {
+    const raw = await fs.readFile(
+      path.join(runDir, "cases", caseId, "soap-report.json"),
+      "utf8",
+    );
+    const parsed = JSON.parse(raw);
+    return parsed?.subjective ? (parsed as SoapReport) : null;
+  } catch {
+    return null;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -464,9 +612,61 @@ async function resolveRunDir(arg: string | undefined): Promise<string> {
   return path.join(RESULTS_DIR, runs[runs.length - 1]);
 }
 
+/**
+ * Re-scores extraction precision for every case using the LLM matcher, then
+ * recomputes the summary. Writes parallel *.llm.* outputs so the keyword-based
+ * results are preserved for side-by-side comparison.
+ */
+async function runLlmMatch(
+  runDir: string,
+  timestamp: string,
+  keywordEvals: PerCaseEvaluation[],
+  matchDelayMs: number,
+) {
+  console.log(
+    `[metrics] re-scoring extraction with LLM matcher (${MATCH_MODEL_ID})...`,
+  );
+  const rescored: PerCaseEvaluation[] = [];
+  for (const ev of keywordEvals) {
+    const soap = await readSoap(runDir, ev.case_id);
+    const updated = await reEvaluateCaseWithLlm(ev, soap);
+    await fs.writeFile(
+      path.join(runDir, "cases", ev.case_id, "evaluation.llm.json"),
+      JSON.stringify(updated, null, 2),
+      "utf8",
+    );
+    const sFrom = ev.symptoms.captured.length;
+    const sTo = updated.symptoms.captured.length;
+    console.log(
+      `[metrics]   ${ev.case_id}: symptoms ${sFrom}->${sTo}/${ev.symptoms.expected.length}`,
+    );
+    rescored.push(updated);
+    if (matchDelayMs > 0) await sleep(matchDelayMs);
+  }
+
+  const summary = computeSummary(rescored, timestamp);
+  const report = renderReport(summary, rescored);
+  await fs.writeFile(
+    path.join(runDir, "summary.llm.json"),
+    JSON.stringify(summary, null, 2),
+    "utf8",
+  );
+  await fs.writeFile(path.join(runDir, "report.llm.md"), report, "utf8");
+
+  console.log(`[metrics] wrote summary.llm.json and report.llm.md to ${runDir}`);
+  console.log(
+    `[metrics] (LLM match) symptom capture ${pct(summary.symptom_capture_rate)} · red-flag capture ${pct(summary.red_flag_capture_rate)}`,
+  );
+}
+
 async function main() {
   const runArgIndex = process.argv.indexOf("--run");
   const runArg = runArgIndex !== -1 ? process.argv[runArgIndex + 1] : undefined;
+  const llmMatch = process.argv.includes("--llm-match");
+  const delayIndex = process.argv.indexOf("--match-delay");
+  const matchDelayMs =
+    delayIndex !== -1 ? parseInt(process.argv[delayIndex + 1], 10) : 800;
+
   const runDir = await resolveRunDir(runArg);
   const timestamp = path.basename(runDir);
 
@@ -488,8 +688,18 @@ async function main() {
 
   console.log(`[metrics] wrote summary.json and report.md to ${runDir}`);
   console.log(
-    `[metrics] triage accuracy ${pct(summary.triage_accuracy)} · under-triage ${pct(summary.under_triage_rate)} · chart ${pct(summary.chart_selection_accuracy)} · symptom capture ${pct(summary.symptom_capture_rate)}`,
+    `[metrics] (keyword match) triage accuracy ${pct(summary.triage_accuracy)} · under-triage ${pct(summary.under_triage_rate)} · chart ${pct(summary.chart_selection_accuracy)} · symptom capture ${pct(summary.symptom_capture_rate)}`,
   );
+
+  if (llmMatch) {
+    // LLM matching needs the Gemini key; load .env.local the same way the runner does.
+    try {
+      process.loadEnvFile(".env.local");
+    } catch {
+      console.warn("[metrics] could not load .env.local; relying on ambient env vars");
+    }
+    await runLlmMatch(runDir, timestamp, evaluations, matchDelayMs);
+  }
 }
 
 // Run main() only when invoked directly as the CLI, not when imported.

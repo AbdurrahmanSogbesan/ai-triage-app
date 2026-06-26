@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "evaluate": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/run-evaluation.ts",
-    "evaluate:metrics": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/evaluate-metrics.ts"
+    "evaluate:metrics": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/evaluate-metrics.ts",
+    "evaluate:aggregate": "tsx --tsconfig ./evaluation/tsconfig.json evaluation/aggregate-runs.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.79",

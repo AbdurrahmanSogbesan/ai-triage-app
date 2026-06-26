@@ -33,10 +33,10 @@
     "chart": "Dizziness or Syncope",
     "triage_level": "yellow",
     "key_symptoms_to_capture": [
-      "spinning sensation (vertigo)",
-      "persistent vomiting",
-      "unsteady on feet",
-      "worse on head movement"
+      "room spinning",
+      "repeated vomiting",
+      "unsteadiness on feet",
+      "aggravated by head turning"
     ],
     "red_flags_to_capture": [
       "Severe vertigo with persistent vomiting"

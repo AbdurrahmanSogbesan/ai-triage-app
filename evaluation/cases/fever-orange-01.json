@@ -34,7 +34,7 @@
     "chart": "Fever in Adults",
     "triage_level": "orange",
     "key_symptoms_to_capture": [
-      "feverish and warm",
+      "feeling hot",
       "racing heart",
       "fast breathing on exertion",
       "headache"

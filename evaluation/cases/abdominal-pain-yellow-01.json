@@ -34,9 +34,9 @@
     "triage_level": "yellow",
     "key_symptoms_to_capture": [
       "burning upper abdominal pain",
-      "repeated vomiting",
+      "vomiting",
       "cannot keep fluids down",
-      "feverish"
+      "subjective fever"
     ],
     "red_flags_to_capture": [
       "Moderate persistent pain with vomiting/fever/can't keep fluids"
