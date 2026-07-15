@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-27 (Phase 3 close — full AI triage loop live)
+Last updated: 2026-07-15 (Phase 5 close — speech-to-text shipped; feature-complete for the defense demo)
 
 ## Current phase
 
@@ -38,13 +38,34 @@ The pipeline does **two-stage persistence**: SOAP `UPDATE` lands as soon as Gemi
 - [`endSessionAction`](<app/(patient)/patient/_components/actions.ts>) — reads `TRANSCRIPT_ENCRYPTION_KEY` from `process.env`, RPCs `save_consultation_transcript`, returns success, then schedules `runAiPipeline` via `after()`.
 - Transcript is held in **client localStorage** during the interview (`triage:transcript:<reportId>`) so the chat survives page refresh, dashboard navigation, and multi-day sessions. On End Session the client posts the full transcript to the server which encrypts it; the localStorage key is cleared on success.
 
+### Speech-to-text (voice input)
+
+The interview composer's mic button now captures real speech, so a patient who struggles with typing can speak their answers. Tier 1 of the STT handoff — the browser's Web Speech API — is what shipped.
+
+- [`lib/hooks/use-speech-input.ts`](lib/hooks/use-speech-input.ts) — `useSpeechInput({ onTranscript, onError, lang })` owns the whole recognition lifecycle. Engine: browser `SpeechRecognition` (exposed as `webkitSpeechRecognition` in Chrome/Edge), `lang="en-NG"`, `continuous`, `interimResults`. A fresh recognition instance is created per `start()` so each session's result list is self-contained; every result event rebuilds the full spoken string and appends it to the text that was in the box when recording began. `onend` is the single point that reconciles "recording stopped" (silence timeout, stop, abort, or error all pass through it); there is no auto-restart. Capability detection uses `useSyncExternalStore` so it is hydration-safe and never hides the button under a mismatch.
+- [`types/speech-recognition.d.ts`](types/speech-recognition.d.ts) — hand-written ambient declarations for `SpeechRecognition` (TypeScript's lib.dom omits them). No new dependency; `@types/dom-speech-recognition` was avoided per the handoff.
+- [`interview-view.tsx`](<app/(patient)/patient/interview/[reportId]/_components/interview-view.tsx>) `Composer` — consumes the hook; transcribed words stream into the same textarea the patient types in (editable before send, never auto-sent). Sending while recording cancels the session first so a late final result can't re-fill the cleared box.
+
+Caveats found:
+
+- Chrome routes recognition audio through Google's servers, so it needs connectivity — a dropped connection surfaces as a "Voice input needs an internet connection" toast. On-device recognition remains the honest future-work answer for the privacy discussion.
+- Continuous recognition self-terminates after a few seconds of silence; that is handled gracefully (banner clears, no toast, no auto-restart loop).
+- Firefox exposes no `SpeechRecognition`, so the mic button is hidden entirely there rather than shipping a button that errors on tap.
+- Denied mic permission shows a "Microphone access needed" toast and leaves the button tappable for a retry (fresh-instance-per-start makes the retry work).
+- **Pidgin** is not transcribed well. `en-NG` handles the Nigerian *accent* but is still an English-Nigeria language model, so Pidgin grammar and non-English-derived words come through as approximate English. This is a hard ceiling of browser STT — there is no `pcm` locale in the engine and unknown tags silently fall back to the default, so no config change improves it.
+- **Punctuation** is essentially absent. Google's engine emits raw word sequences with no full stops or commas, and short pauses split speech into fresh segments rather than sentences. The Web Speech API exposes no flag to turn punctuation on, so it can't be enabled — and heuristic post-processing was rejected as too risky for medical text (a wrongly placed comma can change meaning).
+
+Neither gap degrades the triage: the transcript feeds the interview agent and SOAP generation, both built to cope with messy, unpunctuated, code-switched input, and the patient can edit the textarea before sending. For a demo, these are honest, explainable limitations rather than blockers.
+
+Tier 2 (server-side Groq `whisper-large-v3` behind a `NEXT_PUBLIC_STT_ENGINE` flag) was evaluated against these findings and deliberately **not** built. Whisper would punctuate and handle code-switching natively — it is the documented fix if voice quality ever needs to improve — but since both gaps are cosmetic for triage, the browser engine is sufficient for the defense demo.
+
 ### Clinical surfaces — all real
 
 - **Patient dashboard** ([`app/(patient)/patient/page.tsx`](<app/(patient)/patient/page.tsx>)) — greeting, summary card, in-progress card, quick-action tiles, recent sessions table. All from `getMyPatientProfile`, `getInProgressSession`, `getRecentSessions`, `getPatientSessionStats` in [`actions.ts`](<app/(patient)/patient/_components/actions.ts>).
 - **Patient sessions** ([`app/(patient)/patient/sessions/page.tsx`](<app/(patient)/patient/sessions/page.tsx>)) — real session list.
 - **In-progress card** — abandon flow real (clears localStorage transcript on success), continue restores chat from localStorage.
 - **Vitals modal** — `hasVitalsToday` is now a real query against `vital_records` for the current calendar day. `submitVitalsAction` is idempotent — `UPDATE`s today's row if present, else `INSERT`s.
-- **Interview view** ([`app/(patient)/patient/interview/[reportId]/_components/interview-view.tsx`](<app/(patient)/patient/interview/[reportId]/_components/interview-view.tsx>)) — AI SDK v6 `useChat`, localStorage persistence, end-session toast.
+- **Interview view** ([`app/(patient)/patient/interview/[reportId]/_components/interview-view.tsx`](<app/(patient)/patient/interview/[reportId]/_components/interview-view.tsx>)) — AI SDK v6 `useChat`, localStorage persistence, end-session toast, voice input via the Web Speech API (`en-NG`) with the mic button hidden on browsers that lack it.
 - **Admin queue** ([`app/(admin)/admin/page.tsx`](<app/(admin)/admin/page.tsx>) + [`_components/admin-queue.tsx`](<app/(admin)/admin/_components/admin-queue.tsx>)) — real queue from `admin_queue_view`, real clinician roster with load counts, real assignment (`useTransition` + `router.refresh()`), refresh button wired, status pill reflects actual `row.status`. No clinical content selected for admin role.
 - **Admin case detail** ([`app/(admin)/admin/case/[reportId]/page.tsx`](<app/(admin)/admin/case/[reportId]/page.tsx>)) — metadata only, no clinical columns selected.
 - **Clinician dashboard** ([`app/(clinician)/clinician/page.tsx`](<app/(clinician)/clinician/page.tsx>) + [`_components/clinician-dashboard.tsx`](<app/(clinician)/clinician/_components/clinician-dashboard.tsx>)) — assigned active cases (`status != 'completed'`).
@@ -135,7 +156,7 @@ TRANSCRIPT_ENCRYPTION_KEY=
 - **Demo seed** — deliberately skipped. The user keeps a handful of real test cases on the live DB; the dashboards are populated without a seed script.
 - **`/admin/case/[reportId]`** is intentionally metadata-only. A reassignment-from-here action could be added but isn't required for the demo.
 - **Override-failure path** — if the AI pipeline fails after the transcript saves, the row sits at `awaiting_referee` with `soap_report = null` and the clinician page shows "Summary not ready". The manual recovery is to start a fresh session; no automated regenerate-SOAP path yet.
-- **Phase 4 items** (out of scope for Phase 3): Web Speech API STT (the mic button is still a visual stub), the evaluation harness against the synthetic case set, the optional async-pgmq + Edge Function Referee migration if scale demands.
+- **Async-pgmq Referee migration** — the only deliberately deferred item left. The Referee still runs synchronously inline (see "Sync Referee, async-ready" above); moving it to pgmq + pg_cron + Edge Function is a production scalability concern with zero demo benefit. Everything else on the Phase 4/5 list is done: the evaluation harness (`evaluation/`) and Web Speech API STT (see "Speech-to-text" below) both shipped.
 
 ## Test fixtures
 

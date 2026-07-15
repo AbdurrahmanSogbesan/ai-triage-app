@@ -14,6 +14,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import {
+  useSpeechInput,
+  type SpeechInputErrorCode,
+} from "@/lib/hooks/use-speech-input";
 import { cn } from "@/lib/utils";
 import type { Vitals } from "@/lib/types";
 
@@ -509,12 +513,43 @@ function Composer({
   onSend: () => void;
   disabled?: boolean;
 }) {
-  const [recording, setRecording] = useState(false);
+  const handleSpeechError = (code: SpeechInputErrorCode) => {
+    if (code === "not-allowed") {
+      toast.error("Microphone access needed", {
+        description:
+          "Allow microphone access in your browser settings to use voice input.",
+      });
+    } else if (code === "network") {
+      toast.error("Voice input needs an internet connection", {
+        description:
+          "Check your connection and try again. You can still type your reply.",
+      });
+    }
+    // no-speech / aborted / unknown: stop silently — the banner disappearing is
+    // signal enough, and error toasts here should be reserved for actionable problems.
+  };
+
+  const { supported, recording, start, stop, cancel } = useSpeechInput({
+    onTranscript: onChange,
+    onError: handleSpeechError,
+  });
+
+  const handleMicClick = () => {
+    if (recording) stop();
+    else start(value);
+  };
+
+  const handleSend = () => {
+    // Discard any pending speech so a late final result can't re-fill the
+    // textarea after the parent clears it on send.
+    if (recording) cancel();
+    onSend();
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      handleSend();
     }
   };
 
@@ -528,7 +563,7 @@ function Composer({
           </span>
           <button
             type="button"
-            onClick={() => setRecording(false)}
+            onClick={stop}
             className="rounded-md px-2.5 py-1 text-[12.5px] font-medium text-red-700 hover:bg-red-100"
           >
             Stop
@@ -548,29 +583,31 @@ function Composer({
               className="block min-h-[44px] max-h-32 w-full resize-none bg-transparent px-4 py-2.5 text-[14.5px] leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50"
             />
           </div>
-          <button
-            type="button"
-            aria-label={recording ? "Stop recording" : "Start voice input"}
-            aria-pressed={recording}
-            onClick={() => setRecording((r) => !r)}
-            disabled={disabled}
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              recording
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-muted text-foreground/80 hover:bg-muted/70 disabled:opacity-50",
-            )}
-          >
-            {recording ? (
-              <Square className="h-4 w-4" />
-            ) : (
-              <Mic className="h-4 w-4" />
-            )}
-          </button>
+          {supported && (
+            <button
+              type="button"
+              aria-label={recording ? "Stop recording" : "Start voice input"}
+              aria-pressed={recording}
+              onClick={handleMicClick}
+              disabled={disabled}
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                recording
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-muted text-foreground/80 hover:bg-muted/70 disabled:opacity-50",
+              )}
+            >
+              {recording ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <button
             type="button"
             aria-label="Send message"
-            onClick={onSend}
+            onClick={handleSend}
             disabled={disabled || value.trim().length === 0}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
