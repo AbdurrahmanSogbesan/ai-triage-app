@@ -21,6 +21,7 @@ type ReportRow = {
   confidence_score: number | null;
   status: SessionStatus;
   session_started_at: string;
+  assigned_at?: string | null;
   created_at: string;
   reviewed_at?: string | null;
 };
@@ -62,6 +63,8 @@ async function hydrateCases(
     const severity: Severity =
       r.clinician_triage_label ?? r.ai_triage_label ?? "green";
     const arrivedAt = r.session_started_at ?? r.created_at;
+    // Falls back to arrivedAt for cases assigned before assigned_at existed.
+    const waitSince = r.assigned_at ?? arrivedAt;
     return {
       id: r.id,
       patientId: r.patient_id,
@@ -74,8 +77,8 @@ async function hydrateCases(
       severity,
       confidence: r.confidence_score ?? 0,
       arrivedAt,
-      waitedMin: arrivedAt
-        ? differenceInMinutes(new Date(), parseISO(arrivedAt))
+      waitedMin: waitSince
+        ? differenceInMinutes(new Date(), parseISO(waitSince))
         : 0,
       vitals: vital
         ? {
@@ -110,7 +113,7 @@ export async function getAssignedCases(): Promise<Case[]> {
   const { data: reports } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, vital_record_id, chief_complaint, ai_triage_label, clinician_triage_label, confidence_score, status, session_started_at, created_at",
+      "id, patient_id, vital_record_id, chief_complaint, ai_triage_label, clinician_triage_label, confidence_score, status, session_started_at, assigned_at, created_at",
     )
     .eq("assigned_clinician_id", user.id)
     .neq("status", "completed")
@@ -132,7 +135,7 @@ export async function getCompletedCases(): Promise<Case[]> {
   const { data: reports } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, vital_record_id, chief_complaint, ai_triage_label, clinician_triage_label, clinician_notes, confidence_score, status, session_started_at, created_at, reviewed_at",
+      "id, patient_id, vital_record_id, chief_complaint, ai_triage_label, clinician_triage_label, clinician_notes, confidence_score, status, session_started_at, assigned_at, created_at, reviewed_at",
     )
     .eq("assigned_clinician_id", user.id)
     .eq("status", "completed")

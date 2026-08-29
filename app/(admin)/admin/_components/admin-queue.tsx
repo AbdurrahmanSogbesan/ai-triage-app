@@ -75,6 +75,18 @@ function formatArrivedAt(iso: string): string {
   }
 }
 
+// Wait time only applies while a case is unassigned and the AI is done with
+// it — assigned cases are off the admin's queue, and in-progress ones are
+// still mid-interview rather than "waiting."
+function waitingDisplay(row: Pick<QueueRow, "assignedTo" | "status" | "waitedMin">) {
+  if (row.assignedTo) return { label: "—", tone: "default" as const, alert: false };
+  if (row.status === "in_progress")
+    return { label: "In session", tone: "default" as const, alert: false };
+  const alert = row.waitedMin > 60;
+  const tone = row.waitedMin > 90 ? "danger" : alert ? "warn" : "default";
+  return { label: `${row.waitedMin}m`, tone, alert };
+}
+
 export function AdminQueue({ cases, clinicians }: Props) {
   const router = useRouter();
   const [isAssigning, startAssignTransition] = useTransition();
@@ -278,8 +290,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
               </TableHeader>
               <TableBody>
                 {filtered.map((row) => {
-                  const longWait = row.waitedMin > 60;
-                  const veryLongWait = row.waitedMin > 90;
+                  const waiting = waitingDisplay(row);
                   return (
                     <TableRow key={row.id} className="hover:bg-muted/30">
                       <TableCell className="py-3 pl-5 pr-4">
@@ -308,16 +319,16 @@ export function AdminQueue({ cases, clinicians }: Props) {
                           <span
                             className={cn(
                               "font-mono text-[13px] font-medium tabular-nums",
-                              veryLongWait
+                              waiting.tone === "danger"
                                 ? "text-red-700"
-                                : longWait
+                                : waiting.tone === "warn"
                                   ? "text-amber-700"
                                   : "text-foreground/80",
                             )}
                           >
-                            {row.waitedMin}m
+                            {waiting.label}
                           </span>
-                          {longWait && (
+                          {waiting.alert && (
                             <AlertTriangle className="h-3 w-3 text-amber-500" />
                           )}
                         </div>
@@ -365,8 +376,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
             {/* Mobile cards */}
             <ul className="flex flex-col divide-y divide-border md:hidden">
               {filtered.map((row) => {
-                const longWait = row.waitedMin > 60;
-                const veryLongWait = row.waitedMin > 90;
+                const waiting = waitingDisplay(row);
                 return (
                   <li key={row.id} className="px-4 py-3.5">
                     <div className="flex items-start gap-3">
@@ -391,17 +401,17 @@ export function AdminQueue({ cases, clinicians }: Props) {
                           <span
                             className={cn(
                               "inline-flex items-center gap-1 font-mono text-[11.5px] font-medium tabular-nums",
-                              veryLongWait
+                              waiting.tone === "danger"
                                 ? "text-red-700"
-                                : longWait
+                                : waiting.tone === "warn"
                                   ? "text-amber-700"
                                   : "text-foreground/80",
                             )}
                           >
-                            {longWait && (
+                            {waiting.alert && (
                               <AlertTriangle className="h-2.5 w-2.5" />
                             )}
-                            {row.waitedMin}m wait
+                            {waiting.label}
                           </span>
                         </div>
                       </div>
@@ -443,7 +453,7 @@ export function AdminQueue({ cases, clinicians }: Props) {
         {/* Sidebar */}
         <aside className="flex flex-col gap-4">
           <ClinicianLoadCard clinicians={clinicians} />
-          <TodayCard />
+          {/* TodayCard hidden — its numbers are hardcoded, not real (see below). */}
         </aside>
       </div>
 
@@ -597,39 +607,42 @@ function ClinicianLoadCard({ clinicians }: { clinicians: Clinician[] }) {
           })}
         </ul>
         <p className="mt-4 border-t border-border pt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
-          Auto-assignment is on. Cases without specific routing go to the
-          clinician with the lowest current load.
+          Current caseload per clinician, out of their capacity. Use this to
+          decide who to route a case to when assigning manually.
         </p>
       </CardContent>
     </Card>
   );
 }
 
-function TodayCard() {
-  const kpis = [
-    { k: "Triages completed", v: "47" },
-    { k: "Average wait", v: "23m" },
-    { k: "AI-only auto-approved", v: "31 (66%)" },
-    { k: "Referred to referee", v: "5" },
-  ];
-  return (
-    <Card>
-      <CardContent className="px-5 py-5">
-        <h3 className="mb-3 text-[13px] font-semibold">Today</h3>
-        <dl className="flex flex-col gap-2.5">
-          {kpis.map((x) => (
-            <div key={x.k} className="flex items-baseline justify-between">
-              <dt className="text-[12.5px] text-muted-foreground">{x.k}</dt>
-              <dd className="font-mono text-[13px] font-medium tabular-nums">
-                {x.v}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
-  );
-}
+// TodayCard: not wired to any query — kpis below are fixed placeholder
+// values that never change. Commented out rather than deleted since this
+// is clearly meant to show real aggregates eventually.
+// function TodayCard() {
+//   const kpis = [
+//     { k: "Triages completed", v: "47" },
+//     { k: "Average wait", v: "23m" },
+//     { k: "AI-only auto-approved", v: "31 (66%)" },
+//     { k: "Referred to referee", v: "5" },
+//   ];
+//   return (
+//     <Card>
+//       <CardContent className="px-5 py-5">
+//         <h3 className="mb-3 text-[13px] font-semibold">Today</h3>
+//         <dl className="flex flex-col gap-2.5">
+//           {kpis.map((x) => (
+//             <div key={x.k} className="flex items-baseline justify-between">
+//               <dt className="text-[12.5px] text-muted-foreground">{x.k}</dt>
+//               <dd className="font-mono text-[13px] font-medium tabular-nums">
+//                 {x.v}
+//               </dd>
+//             </div>
+//           ))}
+//         </dl>
+//       </CardContent>
+//     </Card>
+//   );
+// }
 
 function AssignDialog({
   assigning,

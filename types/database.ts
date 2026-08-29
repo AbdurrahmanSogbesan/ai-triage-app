@@ -42,6 +42,7 @@ export type Database = {
       consultation_reports: {
         Row: {
           ai_triage_label: Database["public"]["Enums"]["triage_level"] | null
+          assigned_at: string | null
           assigned_clinician_id: string | null
           chief_complaint: string
           clinician_notes: string | null
@@ -66,6 +67,7 @@ export type Database = {
         }
         Insert: {
           ai_triage_label?: Database["public"]["Enums"]["triage_level"] | null
+          assigned_at?: string | null
           assigned_clinician_id?: string | null
           chief_complaint: string
           clinician_notes?: string | null
@@ -90,6 +92,7 @@ export type Database = {
         }
         Update: {
           ai_triage_label?: Database["public"]["Enums"]["triage_level"] | null
+          assigned_at?: string | null
           assigned_clinician_id?: string | null
           chief_complaint?: string
           clinician_notes?: string | null
@@ -248,6 +251,7 @@ export type Database = {
           id: string | null
           patient_id: string | null
           patient_name: string | null
+          session_ended_at: string | null
           status: Database["public"]["Enums"]["session_status"] | null
         }
         Relationships: [

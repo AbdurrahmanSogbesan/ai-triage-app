@@ -18,7 +18,7 @@ export async function getAdminQueue(): Promise<Case[]> {
   const { data: queueRows } = await supabase
     .from("admin_queue_view")
     .select(
-      "id, patient_id, patient_name, status, assigned_clinician_id, created_at",
+      "id, patient_id, patient_name, status, assigned_clinician_id, created_at, session_ended_at",
     )
     .order("created_at", { ascending: false });
   if (!queueRows) return [];
@@ -57,9 +57,12 @@ export async function getAdminQueue(): Promise<Case[]> {
       severity: "green",
       confidence: 0,
       arrivedAt: row.created_at!,
-      waitedMin: row.created_at
-        ? differenceInMinutes(new Date(), parseISO(row.created_at))
-        : 0,
+      // Only meaningful while unassigned — once a clinician has the case,
+      // it's off the admin's queue and doesn't need a wait value.
+      waitedMin:
+        !row.assigned_clinician_id && row.session_ended_at
+          ? differenceInMinutes(new Date(), parseISO(row.session_ended_at))
+          : 0,
       vitals: { bpSys: 0, bpDia: 0, tempC: 0, weightKg: 0 },
       assignedTo: clinician
         ? `Dr. ${clinician.first_name} ${clinician.last_name}`
@@ -183,7 +186,10 @@ export async function assignCaseAction(
 
   const { error } = await supabase
     .from("consultation_reports")
-    .update({ assigned_clinician_id: clinicianId })
+    .update({
+      assigned_clinician_id: clinicianId,
+      assigned_at: new Date().toISOString(),
+    })
     .eq("id", reportId);
   if (error) return { error: error.message };
 
