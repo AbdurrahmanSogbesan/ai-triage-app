@@ -1,5 +1,8 @@
+"use client";
+
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -119,9 +122,13 @@ function PageHeader({ count }: { count: number }) {
 }
 
 function HistoryRow({ caseRow }: { caseRow: Case }) {
+  const router = useRouter();
   const overridden = isOverridden(caseRow);
   return (
-    <TableRow className="group cursor-pointer transition-colors hover:bg-muted/40">
+    <TableRow
+      className="group cursor-pointer transition-colors hover:bg-muted/40"
+      onClick={() => router.push(`/clinician/case/${caseRow.id}`)}
+    >
       <td className="p-0">
         <Link
           href={`/clinician/case/${caseRow.id}`}

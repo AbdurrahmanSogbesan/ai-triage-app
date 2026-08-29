@@ -6,6 +6,7 @@ import {
   LAST_ACTIVITY_COOKIE,
   SESSION_MAX_AGE_MS,
   SESSION_STARTED_COOKIE,
+  SESSION_TIMEOUT_DISABLED,
 } from "@/lib/auth/session-limits";
 
 const ROLE_PREFIX = /^\/(patient|clinician|admin)(?:\/|$)/;
@@ -61,7 +62,7 @@ export async function proxy(request: NextRequest) {
   const onProtected = ROLE_PREFIX.test(pathname);
   const onAuthPath = AUTH_PATHS.has(pathname);
 
-  if (user) {
+  if (user && !SESSION_TIMEOUT_DISABLED) {
     const now = Date.now();
     const startedAtRaw = request.cookies.get(SESSION_STARTED_COOKIE)?.value;
     const lastActivityRaw = request.cookies.get(LAST_ACTIVITY_COOKIE)?.value;

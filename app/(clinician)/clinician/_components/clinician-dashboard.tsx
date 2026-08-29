@@ -383,8 +383,12 @@ function SortableHead({
 }
 
 function CaseRow({ caseRow }: { caseRow: Case }) {
+  const router = useRouter();
   return (
-    <TableRow className="group cursor-pointer transition-colors hover:bg-muted/40">
+    <TableRow
+      className="group cursor-pointer transition-colors hover:bg-muted/40"
+      onClick={() => router.push(`/clinician/case/${caseRow.id}`)}
+    >
       <td className="p-0">
         <Link
           href={`/clinician/case/${caseRow.id}`}

@@ -6,5 +6,8 @@
 export const SESSION_STARTED_COOKIE = "session_started_at";
 export const LAST_ACTIVITY_COOKIE = "last_activity_at";
 
-export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle
+export const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour idle
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours absolute cap
+
+export const SESSION_TIMEOUT_DISABLED =
+  process.env.DISABLE_SESSION_TIMEOUT === "true";
