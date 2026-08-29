@@ -60,7 +60,7 @@ export default async function ClinicianCasePage({
   const { data: report } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, clinician_notes, confidence_score, session_started_at, session_ended_at, reviewed_at, soap_report, referee_flags",
+      "id, patient_id, vital_record_id, assigned_clinician_id, chief_complaint, status, ai_triage_label, clinician_triage_label, clinician_notes, confidence_score, session_started_at, session_ended_at, assigned_at, reviewed_at, soap_report, referee_flags",
     )
     .eq("id", reportId)
     .maybeSingle();
@@ -132,7 +132,7 @@ export default async function ClinicianCasePage({
     arrivedAt: report.session_started_at,
     waitedMin: differenceInMinutes(
       new Date(),
-      parseISO(report.session_started_at),
+      parseISO(report.assigned_at ?? report.session_started_at),
     ),
     vitals: {
       bpSys: vital.blood_pressure_systolic,

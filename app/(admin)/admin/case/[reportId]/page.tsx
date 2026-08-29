@@ -58,7 +58,9 @@ export default async function AdminCasePage({
             value={`${caseRow.name} · ${caseRow.age} · ${caseRow.sex === "M" ? "Male" : "Female"}`}
           />
           <ProfileRow label="Arrived" value={arrivedAtDisplay} mono />
-          <ProfileRow label="Waited" value={`${caseRow.waitedMin}m`} mono />
+          {caseRow.waitingLabel !== null && (
+            <ProfileRow label="Waited" value={caseRow.waitingLabel} mono />
+          )}
           <ProfileRow
             label="Status"
             value={<StatusBadge status={caseRow.status} />}

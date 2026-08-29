@@ -45,8 +45,9 @@ export async function getAdminQueue(): Promise<Case[]> {
     const age = patient?.date_of_birth
       ? differenceInYears(new Date(), parseISO(patient.date_of_birth))
       : 0;
-    const sex: "M" | "F" =
-      patient?.sex?.toLowerCase().startsWith("f") ? "F" : "M";
+    const sex: "M" | "F" = patient?.sex?.toLowerCase().startsWith("f")
+      ? "F"
+      : "M";
     return {
       id: row.id!,
       patientId: row.patient_id!,
@@ -114,7 +115,7 @@ export type AdminCaseMetadata = {
   age: number;
   sex: "M" | "F";
   arrivedAt: string;
-  waitedMin: number;
+  waitingLabel: string | null;
   status: Case["status"];
   assignedTo: string | null;
 };
@@ -129,7 +130,7 @@ export async function getAdminCaseMetadata(
   const { data: report } = await supabase
     .from("consultation_reports")
     .select(
-      "id, patient_id, assigned_clinician_id, status, session_started_at, created_at",
+      "id, patient_id, assigned_clinician_id, status, session_started_at, session_ended_at, created_at",
     )
     .eq("id", reportId)
     .maybeSingle();
@@ -154,6 +155,11 @@ export async function getAdminCaseMetadata(
     : 0;
   const sex: "M" | "F" = patient.sex?.toLowerCase().startsWith("f") ? "F" : "M";
   const arrivedAt = report.session_started_at ?? report.created_at;
+  const waitingLabel = report.assigned_clinician_id
+    ? null
+    : report.session_ended_at
+      ? `${differenceInMinutes(new Date(), parseISO(report.session_ended_at))}m`
+      : "In session";
 
   return {
     id: report.id,
@@ -162,9 +168,7 @@ export async function getAdminCaseMetadata(
     age,
     sex,
     arrivedAt,
-    waitedMin: arrivedAt
-      ? differenceInMinutes(new Date(), parseISO(arrivedAt))
-      : 0,
+    waitingLabel,
     status: report.status,
     assignedTo: clinician
       ? `Dr. ${clinician.first_name} ${clinician.last_name}`
