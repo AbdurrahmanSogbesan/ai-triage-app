@@ -3,7 +3,7 @@
 import { format, parseISO } from "date-fns";
 import { AlertTriangle, Clock, RefreshCw, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -78,18 +78,29 @@ function formatArrivedAt(iso: string): string {
 export function AdminQueue({ cases, clinicians }: Props) {
   const router = useRouter();
   const [isAssigning, startAssignTransition] = useTransition();
-  const [queue, setQueue] = useState<QueueRow[]>(() =>
-    cases.map((c) => ({
-      id: c.id,
-      patientId: c.patientId,
-      name: c.name,
-      age: c.age,
-      sex: c.sex,
-      arrivedAt: c.arrivedAt,
-      waitedMin: c.waitedMin,
-      assignedTo: c.assignedTo,
-      status: c.status,
-    })),
+
+  // Derived from `cases` every render (not a useState copy) so router.refresh() lands.
+  const baseQueue = useMemo<QueueRow[]>(
+    () =>
+      cases.map((c) => ({
+        id: c.id,
+        patientId: c.patientId,
+        name: c.name,
+        age: c.age,
+        sex: c.sex,
+        arrivedAt: c.arrivedAt,
+        waitedMin: c.waitedMin,
+        assignedTo: c.assignedTo,
+        status: c.status,
+      })),
+    [cases],
+  );
+  const [queue, applyOptimisticAssign] = useOptimistic(
+    baseQueue,
+    (rows, update: { id: string; assignedTo: string }) =>
+      rows.map((r) =>
+        r.id === update.id ? { ...r, assignedTo: update.assignedTo } : r,
+      ),
   );
   const [assigning, setAssigning] = useState<QueueRow | null>(null);
   const [bucket, setBucket] = useState<Bucket>("all");
@@ -124,19 +135,14 @@ export function AdminQueue({ cases, clinicians }: Props) {
     if (!assigning) return;
     const target = assigning;
     startAssignTransition(async () => {
+      // Reverts on its own if assignCaseAction fails below.
+      applyOptimisticAssign({ id: target.id, assignedTo: clinicianName });
+
       const result = await assignCaseAction(target.id, clinicianId);
       if ("error" in result) {
         toast.error("Could not assign", { description: result.error });
         return;
       }
-      // Optimistic local update so the UI reflects the change immediately;
-      // router.refresh() then re-fetches from the server so clinician load
-      // counts (in the right rail) reflect the new assignment too.
-      setQueue((rows) =>
-        rows.map((r) =>
-          r.id === target.id ? { ...r, assignedTo: clinicianName } : r,
-        ),
-      );
       setAssigning(null);
       toast.success(`Assigned to ${clinicianName}`, {
         description: `${target.name} has been routed.`,

@@ -9,7 +9,8 @@ import {
   Search,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { cn, shortReportId } from "@/lib/utils";
 import type { Case, Severity } from "@/lib/types";
@@ -53,11 +54,19 @@ type SortDir = "asc" | "desc";
 type FilterValue = "all" | Severity;
 
 export function ClinicianDashboard({ cases }: { cases: Case[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, startRefreshTransition] = useTransition();
+
+  const handleRefresh = () => {
+    startRefreshTransition(() => {
+      router.refresh();
+    });
+  };
 
   // Skeleton placeholder while the "fetch" settles — matches design (900ms).
   useEffect(() => {
@@ -149,9 +158,17 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
               aria-label="Search cases"
             />
           </div>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw
+              className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+            />
+            {isRefreshing ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
       </header>
