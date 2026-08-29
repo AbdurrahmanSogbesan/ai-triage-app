@@ -2,8 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { roleRoot } from "@/lib/auth/roles";
+import {
+  LAST_ACTIVITY_COOKIE,
+  SESSION_STARTED_COOKIE,
+} from "@/lib/auth/session-limits";
 import { createClient } from "@/lib/supabase/server";
 
 type ActionError = { error: string };
@@ -95,6 +100,13 @@ export async function register(input: {
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
+
+  // Otherwise a fresh login on the same browser would inherit the previous
+  // session's start time and could be flagged as already-expired.
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_STARTED_COOKIE);
+  cookieStore.delete(LAST_ACTIVITY_COOKIE);
+
   revalidatePath("/", "layout");
   redirect("/login");
 }

@@ -1,6 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  INACTIVITY_TIMEOUT_MS,
+  LAST_ACTIVITY_COOKIE,
+  SESSION_MAX_AGE_MS,
+  SESSION_STARTED_COOKIE,
+} from "@/lib/auth/session-limits";
+
 const ROLE_PREFIX = /^\/(patient|clinician|admin)(?:\/|$)/;
 const AUTH_PATHS = new Set(["/login", "/register"]);
 
@@ -13,6 +20,8 @@ const AUTH_PATHS = new Set(["/login", "/register"]);
  *   2. Bounce unauthenticated users away from /patient, /clinician, /admin → /login.
  *   3. Bounce authenticated users away from /login, /register → /, which then
  *      redirects them to their role root.
+ *   4. Force sign-out once a session exceeds SESSION_MAX_AGE_MS or has been
+ *      idle past INACTIVITY_TIMEOUT_MS — see lib/auth/session-limits.ts.
  *
  * Role-vs-role gating (patient hitting /clinician, etc.) is NOT done here —
  * that needs the profile row which costs a DB query. Layouts under each role
@@ -51,6 +60,44 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const onProtected = ROLE_PREFIX.test(pathname);
   const onAuthPath = AUTH_PATHS.has(pathname);
+
+  if (user) {
+    const now = Date.now();
+    const startedAtRaw = request.cookies.get(SESSION_STARTED_COOKIE)?.value;
+    const lastActivityRaw = request.cookies.get(LAST_ACTIVITY_COOKIE)?.value;
+    const startedAt = startedAtRaw ? Number(startedAtRaw) : now;
+    const lastActivity = lastActivityRaw ? Number(lastActivityRaw) : now;
+
+    const expired =
+      now - startedAt > SESSION_MAX_AGE_MS ||
+      now - lastActivity > INACTIVITY_TIMEOUT_MS;
+
+    if (expired) {
+      await supabase.auth.signOut();
+      const expiredResponse = redirectWithCookies(
+        new URL("/login?reason=expired", request.url),
+        response
+      );
+      expiredResponse.cookies.delete(SESSION_STARTED_COOKIE);
+      expiredResponse.cookies.delete(LAST_ACTIVITY_COOKIE);
+      return expiredResponse;
+    }
+
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: "lax" as const,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    };
+    response.cookies.set(SESSION_STARTED_COOKIE, String(startedAt), {
+      ...cookieOptions,
+      maxAge: SESSION_MAX_AGE_MS / 1000,
+    });
+    response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), {
+      ...cookieOptions,
+      maxAge: INACTIVITY_TIMEOUT_MS / 1000,
+    });
+  }
 
   if (!user && onProtected) {
     return redirectWithCookies(new URL("/login", request.url), response);
