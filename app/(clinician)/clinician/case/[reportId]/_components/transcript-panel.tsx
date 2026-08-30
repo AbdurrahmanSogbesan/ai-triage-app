@@ -1,7 +1,6 @@
 import { FileText, Lock } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SessionStatus, TranscriptTurn } from "@/lib/types";
 
@@ -21,19 +20,11 @@ export function TranscriptPanel({
   return (
     <Card>
       <CardContent className="px-6 py-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-[14.5px] font-semibold">
-              Interview transcript
-            </h3>
-            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-              {transcript.length} turns · ~{patientTurns * 45}s · English
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <FileText className="h-3 w-3" />
-            Export PDF
-          </Button>
+        <div className="mb-4">
+          <h3 className="text-[14.5px] font-semibold">Interview transcript</h3>
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+            {transcript.length} turns · ~{patientTurns * 45}s · English
+          </p>
         </div>
         <div className="flex flex-col gap-3">
           {transcript.map((m, i) => (
