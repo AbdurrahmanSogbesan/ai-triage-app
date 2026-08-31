@@ -6,11 +6,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Case, Clinician } from "@/lib/types";
 
-// Admin views the queue and assignment metadata only — no clinical content.
-// All admin queries deliberately omit chief_complaint / soap_report / vitals
-// / ai_triage_label / confidence_score / referee_flags / encrypted_transcript.
-// The Case shape is reused (it's what AdminQueue consumes) with clinical
-// fields stubbed to zero/empty; the UI never reads them for the admin role.
+// Admins see queue metadata plus the AI's triage level and confidence, which
+// are what make the queue orderable by urgency. Anything describing the
+// patient's condition stays out: admin queries still omit chief_complaint /
+// soap_report / vitals / referee_flags / encrypted_transcript. The Case shape
+// is reused with those fields stubbed; the admin UI never reads them.
 
 export async function getAdminQueue(): Promise<Case[]> {
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function getAdminQueue(): Promise<Case[]> {
   const { data: queueRows } = await supabase
     .from("admin_queue_view")
     .select(
-      "id, patient_id, patient_name, status, assigned_clinician_id, created_at, session_ended_at",
+      "id, patient_id, patient_name, ai_triage_label, confidence_score, status, assigned_clinician_id, created_at, session_ended_at",
     )
     .order("created_at", { ascending: false });
   if (!queueRows) return [];
@@ -55,8 +55,13 @@ export async function getAdminQueue(): Promise<Case[]> {
       age,
       sex,
       complaint: "",
+      // `severity` is the clinician-facing effective label, unused here;
+      // `aiSeverity` is the raw AI label the queue renders.
       severity: "green",
-      confidence: 0,
+      aiSeverity: row.ai_triage_label,
+      // Null until the referee scores the case; 0 lands in the
+      // "Manual review recommended" band, which is the right signal.
+      confidence: row.confidence_score ?? 0,
       arrivedAt: row.created_at!,
       // Only meaningful while unassigned — once a clinician has the case,
       // it's off the admin's queue and doesn't need a wait value.
@@ -127,6 +132,7 @@ export async function getAdminCaseMetadata(
 
   // Pull only metadata columns — never chief_complaint / soap_report /
   // ai_triage_label / confidence_score / referee_flags / encrypted_transcript.
+  // The queue shows the triage level; this page only exists to reassign.
   const { data: report } = await supabase
     .from("consultation_reports")
     .select(

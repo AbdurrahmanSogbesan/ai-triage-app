@@ -24,9 +24,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AiTriageCaveat } from "@/components/clinical/ai-triage-caveat";
+import { ConfidenceInline } from "@/components/clinical/confidence-indicator";
+import { SeverityBadge } from "@/components/clinical/severity-badge";
 import { StatusBadge } from "@/components/clinical/status-badge";
 import { cn, shortReportId } from "@/lib/utils";
-import type { Case, Clinician } from "@/lib/types";
+import type { Case, Clinician, Severity } from "@/lib/types";
 
 import { assignCaseAction } from "./actions";
 
@@ -45,6 +48,8 @@ type QueueRow = {
   waitedMin: number;
   assignedTo: string | null;
   status: Case["status"];
+  aiSeverity: Severity | null;
+  confidence: number;
 };
 
 type Bucket = "all" | "unassigned" | "assigned";
@@ -104,6 +109,8 @@ export function AdminQueue({ cases, clinicians }: Props) {
         waitedMin: c.waitedMin,
         assignedTo: c.assignedTo,
         status: c.status,
+        aiSeverity: c.aiSeverity ?? null,
+        confidence: c.confidence,
       })),
     [cases],
   );
@@ -268,22 +275,28 @@ export function AdminQueue({ cases, clinicians }: Props) {
 
           <CardContent className="px-0 py-0">
             {/* Desktop table — min-width forces horizontal scroll on narrow desktops */}
-            <Table className="hidden min-w-[820px] md:table">
+            <Table className="hidden min-w-[920px] md:table">
               <TableHeader>
                 <TableRow className="border-b border-border bg-muted/40 hover:bg-muted/40">
                   <TableHead className="h-9 pl-5 pr-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     Patient
                   </TableHead>
-                  <TableHead className="h-9 w-[120px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableHead className="h-9 w-[170px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      AI triage
+                      <AiTriageCaveat />
+                    </span>
+                  </TableHead>
+                  <TableHead className="h-9 w-[104px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     Arrived
                   </TableHead>
-                  <TableHead className="h-9 w-[150px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableHead className="h-9 w-[124px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     Waiting
                   </TableHead>
-                  <TableHead className="h-9 w-[220px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableHead className="h-9 w-[200px] px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     Assignment
                   </TableHead>
-                  <TableHead className="h-9 w-[120px] px-4 text-right text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableHead className="h-9 w-[104px] px-4 text-right text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     <span className="sr-only">Action</span>
                   </TableHead>
                 </TableRow>
@@ -310,6 +323,12 @@ export function AdminQueue({ cases, clinicians }: Props) {
                             </span>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <AiTriageCell
+                          aiSeverity={row.aiSeverity}
+                          confidence={row.confidence}
+                        />
                       </TableCell>
                       <TableCell className="px-4 py-3 text-[13px] tabular-nums text-foreground/80">
                         {formatArrivedAt(row.arrivedAt)}
@@ -394,6 +413,19 @@ export function AdminQueue({ cases, clinicians }: Props) {
                           </span>
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {row.aiSeverity ? (
+                            <>
+                              <SeverityBadge level={row.aiSeverity} />
+                              {/* No column header on mobile — the caveat
+                                  rides with the badge instead. */}
+                              <AiTriageCaveat />
+                              <ConfidenceInline score={row.confidence} />
+                            </>
+                          ) : (
+                            <PendingTriageChip />
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
                             <Clock className="h-2.5 w-2.5" />
                             {formatArrivedAt(row.arrivedAt)}
@@ -465,6 +497,35 @@ export function AdminQueue({ cases, clinicians }: Props) {
         isPending={isAssigning}
       />
     </div>
+  );
+}
+
+// "Pending" until the interview finishes and the SOAP lands.
+function AiTriageCell({
+  aiSeverity,
+  confidence,
+}: {
+  aiSeverity: Severity | null;
+  confidence: number;
+}) {
+  if (!aiSeverity) return <PendingTriageChip />;
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <SeverityBadge level={aiSeverity} />
+      <ConfidenceInline score={confidence} />
+    </div>
+  );
+}
+
+function PendingTriageChip() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
+        aria-hidden="true"
+      />
+      Pending
+    </span>
   );
 }
 
