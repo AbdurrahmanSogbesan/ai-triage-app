@@ -59,7 +59,7 @@ export type Clinician = {
   name: string;
   load: number;
   capacity: number;
-  speciality: string;
+  speciality: string | null;
 };
 
 export type PatientProfile = {

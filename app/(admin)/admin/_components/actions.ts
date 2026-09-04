@@ -107,7 +107,7 @@ export async function getClinicianRoster(): Promise<Clinician[]> {
   return clinicians.map((c) => ({
     id: c.id,
     name: `Dr. ${c.first_name} ${c.last_name}`,
-    speciality: c.speciality ?? "General Medicine",
+    speciality: c.speciality,
     load: loadByClinician.get(c.id) ?? 0,
     capacity: 12,
   }));

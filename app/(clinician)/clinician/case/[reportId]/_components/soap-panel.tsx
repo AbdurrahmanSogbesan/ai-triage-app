@@ -43,9 +43,24 @@ function SoapSection({
   );
 }
 
-function ListKv({ k, items }: { k: string; items: string[] }) {
+const KV_COLS = {
+  wide: "grid-cols-[110px_1fr] md:grid-cols-[168px_1fr]",
+  compact: "grid-cols-[110px_1fr] md:grid-cols-[128px_1fr]",
+} as const;
+
+type KvCols = keyof typeof KV_COLS;
+
+function ListKv({
+  k,
+  items,
+  cols = "wide",
+}: {
+  k: string;
+  items: string[];
+  cols?: KvCols;
+}) {
   return (
-    <div className="grid grid-cols-[110px_1fr] gap-3 py-1.5">
+    <div className={cn("grid gap-3 py-1.5", KV_COLS[cols])}>
       <dt className="text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
         {k}
       </dt>
@@ -67,9 +82,9 @@ function ListKv({ k, items }: { k: string; items: string[] }) {
   );
 }
 
-function Kv({ k, v }: { k: string; v: string }) {
+function Kv({ k, v, cols = "wide" }: { k: string; v: string; cols?: KvCols }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] gap-3 py-1.5">
+    <div className={cn("grid gap-3 py-1.5", KV_COLS[cols])}>
       <dt className="text-[12.5px] font-medium uppercase tracking-wider text-muted-foreground">
         {k}
       </dt>
@@ -108,9 +123,18 @@ export function SoapPanel({ soap }: { soap: SoapReport }) {
           </p>
           <p>{soap.subjective.history_of_present_illness}</p>
           <dl className="mt-4 divide-y divide-border">
-            <ListKv k="Associated" items={soap.subjective.associated_symptoms} />
-            <ListKv k="PMH" items={soap.subjective.past_medical_history} />
-            <ListKv k="Meds" items={soap.subjective.current_medications} />
+            <ListKv
+              k="Associated"
+              items={soap.subjective.associated_symptoms}
+            />
+            <ListKv
+              k="Past Medical History"
+              items={soap.subjective.past_medical_history}
+            />
+            <ListKv
+              k="Medications"
+              items={soap.subjective.current_medications}
+            />
             <ListKv k="Allergies" items={soap.subjective.allergies} />
             <Kv k="Social" v={nonEmpty(soap.subjective.social_history)} />
           </dl>
@@ -124,17 +148,20 @@ export function SoapPanel({ soap }: { soap: SoapReport }) {
               {soap.objective.general_observations}
             </p>
           )}
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2">
             <Kv
-              k="BP"
+              k="Blood Pressure"
+              cols="compact"
               v={`${formatBloodPressure(soap.objective.vitals.blood_pressure)} mmHg`}
             />
             <Kv
-              k="Temp"
+              k="Temperature"
+              cols="compact"
               v={`${soap.objective.vitals.temperature_celsius.toFixed(1)} °C`}
             />
             <Kv
               k="Weight"
+              cols="compact"
               v={`${soap.objective.vitals.weight_kg.toFixed(1)} kg`}
             />
           </dl>

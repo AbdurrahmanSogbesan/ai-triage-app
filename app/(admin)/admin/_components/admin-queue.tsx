@@ -83,8 +83,11 @@ function formatArrivedAt(iso: string): string {
 // Wait time only applies while a case is unassigned and the AI is done with
 // it — assigned cases are off the admin's queue, and in-progress ones are
 // still mid-interview rather than "waiting."
-function waitingDisplay(row: Pick<QueueRow, "assignedTo" | "status" | "waitedMin">) {
-  if (row.assignedTo) return { label: "—", tone: "default" as const, alert: false };
+function waitingDisplay(
+  row: Pick<QueueRow, "assignedTo" | "status" | "waitedMin">,
+) {
+  if (row.assignedTo)
+    return { label: "—", tone: "default" as const, alert: false };
   if (row.status === "in_progress")
     return { label: "In session", tone: "default" as const, alert: false };
   const alert = row.waitedMin > 60;
@@ -705,6 +708,19 @@ function ClinicianLoadCard({ clinicians }: { clinicians: Clinician[] }) {
 //   );
 // }
 
+const FALLBACK_SPECIALITY = "General Practice";
+
+function groupBySpeciality(clinicians: Clinician[]) {
+  const groups = new Map<string, Clinician[]>();
+  for (const c of clinicians) {
+    const key = c.speciality?.trim() || FALLBACK_SPECIALITY;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(c);
+    else groups.set(key, [c]);
+  }
+  return [...groups].sort(([a], [b]) => a.localeCompare(b));
+}
+
 function AssignDialog({
   assigning,
   clinicians,
@@ -723,6 +739,8 @@ function AssignDialog({
       (a, b) => a.load / a.capacity - b.load / b.capacity,
     )[0];
   }, [clinicians]);
+
+  const grouped = useMemo(() => groupBySpeciality(clinicians), [clinicians]);
   const [selected, setSelected] = useState<string | undefined>(lightest?.id);
   const selectedClinician = clinicians.find((c) => c.id === selected);
 
@@ -747,59 +765,68 @@ function AssignDialog({
           </DialogDescription>
         </DialogHeader>
         {assigning && (
-          <ul className="flex flex-col gap-1.5">
-            {clinicians.map((c) => {
-              const pct = Math.round((c.load / c.capacity) * 100);
-              const on = selected === c.id;
-              const tone =
-                pct >= 90
-                  ? "bg-red-500"
-                  : pct >= 75
-                    ? "bg-amber-500"
-                    : "bg-primary";
-              return (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(c.id)}
-                    aria-pressed={on}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
-                      on
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-foreground/20 hover:bg-muted/60",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-4 w-4 shrink-0 rounded-full border-2",
-                        on
-                          ? "border-primary bg-primary"
-                          : "border-border bg-white",
-                      )}
-                      aria-hidden="true"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13.5px] font-medium">
-                        {c.name}
-                      </div>
-                      <div className="mt-0.5 text-[11.5px] text-muted-foreground">
-                        Current load · {c.load}/{c.capacity}
-                      </div>
-                    </div>
-                    <div className="w-20 shrink-0">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={cn("h-full rounded-full", tone)}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex flex-col gap-4">
+            {grouped.map(([speciality, members]) => (
+              <section key={speciality}>
+                <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {speciality}
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {members.map((c) => {
+                    const pct = Math.round((c.load / c.capacity) * 100);
+                    const on = selected === c.id;
+                    const tone =
+                      pct >= 90
+                        ? "bg-red-500"
+                        : pct >= 75
+                          ? "bg-amber-500"
+                          : "bg-primary";
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelected(c.id)}
+                          aria-pressed={on}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
+                            on
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-foreground/20 hover:bg-muted/60",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "h-4 w-4 shrink-0 rounded-full border-2",
+                              on
+                                ? "border-primary bg-primary"
+                                : "border-border bg-white",
+                            )}
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13.5px] font-medium">
+                              {c.name}
+                            </div>
+                            <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+                              Current load · {c.load}/{c.capacity}
+                            </div>
+                          </div>
+                          <div className="w-20 shrink-0">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={cn("h-full rounded-full", tone)}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isPending}>
