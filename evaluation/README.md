@@ -86,6 +86,51 @@ pnpm evaluate:metrics --run <ts3> --llm-match
 pnpm evaluate:aggregate --runs <ts1>,<ts2>,<ts3>
 ```
 
+## The case files
+
+One JSON file per case in `evaluation/cases/`, named `<complaint>-<expected
+level>-<n>.json`. The shape is `SyntheticCase` in `types.ts`:
+
+```jsonc
+{
+  "id": "chest-pain-red-01",          // must match the filename stem
+  "chief_complaint": "...",           // seeds the interview as the patient's first message
+  "vitals": {                         // the four values intake collects
+    "blood_pressure_systolic": 90,
+    "blood_pressure_diastolic": 60,
+    "temperature_celsius": 36.8,
+    "weight_kg": 88
+  },
+  "demographics": { "age": 64, "sex": "male", "preferred_language": "English" },
+
+  // Given ONLY to the patient simulator. It answers the triage AI's questions
+  // from this persona and volunteers nothing that is not asked for.
+  "patient_persona": {
+    "symptoms": ["severe crushing chest pain", "gasping for air"],
+    "medical_history": ["previous heart attack"],
+    "medications": ["aspirin 75mg daily"],
+    "allergies": ["No known allergies"],
+    "red_flags_present": ["cyanosis (blue lips)"],
+    "communication_style": "spoken by panicked spouse, patient too breathless to talk"
+  },
+
+  // Ground truth. Never shown to any agent, including the simulator — the
+  // whole question is whether the triage AI *discovers* this by asking.
+  "expected": {
+    "chart": "Chest Pain",            // exact name from lib/ai/mts-charts.ts
+    "triage_level": "red",            // red | orange | yellow | green | blue
+    "key_symptoms_to_capture": ["severe crushing chest pain", "blue lips"],
+    "red_flags_to_capture": ["Severe respiratory distress, can't complete sentences"]
+  }
+}
+```
+
+Two rules matter when writing a new case. The persona must contain everything
+the expected items are scored against — the AI can only capture what the
+simulated patient is able to say. And `expected.chart` must match a chart name
+in `lib/ai/mts-charts.ts` exactly, or chart-selection accuracy will score it
+wrong no matter what the selector chose.
+
 ## What the metrics mean
 
 | Metric | Meaning |
@@ -105,4 +150,5 @@ pnpm evaluate:aggregate --runs <ts1>,<ts2>,<ts3>
 - Groq's free tier has a daily token cap; running many full batches in one day can
   exhaust it and make the Referee fail (the SOAP/triage still complete — only the
   confidence score is lost). Increasing `--delay` does **not** help a daily cap.
-- Cases live in `evaluation/cases/*.json`. Add a file there to add a case.
+- Adding a case is just adding a file to `evaluation/cases/` — the runner
+  globs the directory, so nothing needs registering.

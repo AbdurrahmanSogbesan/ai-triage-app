@@ -4,9 +4,6 @@
 -- Three tables (profiles, vital_records, consultation_reports), three enums,
 -- RLS on every table, pgcrypto for transcript-at-rest, a SECURITY DEFINER
 -- decryption helper, and a column-restricted view for the admin queue.
---
--- Phase 2 only exercises profiles + auth. Clinical tables are staged so the
--- next phase can start writing without a schema change.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -186,9 +183,10 @@ create table public.consultation_reports (
   session_ended_at timestamptz,
   reviewed_at timestamptz,
 
-  -- Updated on every interview message. A timeout worker reads this to mark
-  -- idle sessions 'abandoned' after 10 minutes of inactivity. Worker is
-  -- wired in a later phase; column exists now to avoid a schema migration.
+  -- Intended for an idle-session sweeper that marks sessions 'abandoned'
+  -- after 10 minutes without a message. No sweeper runs against it: the
+  -- application abandons a session only when the patient discards it, so
+  -- this column currently holds its insert-time default.
   last_activity_at timestamptz not null default now(),
 
   created_at timestamptz not null default now()

@@ -168,7 +168,6 @@ export function InterviewView({
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-background md:h-screen md:flex-row">
-      {/* Mobile top bar */}
       <header className="sticky top-14 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-white px-4 md:hidden">
         <Link
           href="/patient"

@@ -68,7 +68,6 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
     });
   };
 
-  // Skeleton placeholder while the "fetch" settles — matches design (900ms).
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 900);
     return () => clearTimeout(t);
@@ -104,7 +103,9 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
     arr.sort((a, b) => {
       switch (sortKey) {
         case "severity":
-          return (SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]) * dir;
+          return (
+            (SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]) * dir
+          );
         case "name":
           return a.name.localeCompare(b.name) * dir;
         case "complaint":
@@ -131,7 +132,6 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 px-5 py-6 md:px-8 md:py-7">
-      {/* Page header */}
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-1.5 flex items-center gap-2">
@@ -173,7 +173,6 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
         </div>
       </header>
 
-      {/* Filter chips — "All" + 5 severity levels */}
       <div
         className="flex flex-wrap items-center gap-2"
         role="toolbar"
@@ -209,7 +208,6 @@ export function ClinicianDashboard({ cases }: { cases: Case[] }) {
         )}
       </div>
 
-      {/* Cases table / cards */}
       {!loading && sorted.length === 0 ? (
         <EmptyState filtered={isFiltering} />
       ) : (
@@ -314,20 +312,17 @@ function FilterChip({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         active
           ? "bg-foreground text-background"
-          : "border border-border bg-white text-foreground/80 hover:border-foreground/20 hover:bg-muted"
+          : "border border-border bg-white text-foreground/80 hover:border-foreground/20 hover:bg-muted",
       )}
     >
       {dot && (
-        <span
-          className={cn("h-2 w-2 rounded-full", dot)}
-          aria-hidden="true"
-        />
+        <span className={cn("h-2 w-2 rounded-full", dot)} aria-hidden="true" />
       )}
       {label}
       <span
         className={cn(
           "-mr-1 rounded px-1.5 py-0.5 text-[11.5px] tabular-nums",
-          active ? "text-background/70" : "text-muted-foreground"
+          active ? "text-background/70" : "text-muted-foreground",
         )}
       >
         {count}
@@ -353,18 +348,16 @@ function SortableHead({
     <TableHead
       className={cn(
         "h-9 px-4 text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground",
-        className
+        className,
       )}
-      aria-sort={
-        active ? (dir === "asc" ? "ascending" : "descending") : "none"
-      }
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
     >
       <button
         type="button"
         onClick={onClick}
         className={cn(
           "-ml-0.5 inline-flex items-center gap-1 rounded px-0.5 py-0.5 transition-colors focus:outline-none focus-visible:text-foreground",
-          active ? "text-foreground" : "hover:text-foreground"
+          active ? "text-foreground" : "hover:text-foreground",
         )}
       >
         {label}
@@ -392,10 +385,7 @@ function CaseRow({ caseRow }: { caseRow: Case }) {
       <td className="p-0">
         <Link
           href={`/clinician/case/${caseRow.id}`}
-          className={cn(
-            "block h-12 w-[3px]",
-            SEVERITY_BG[caseRow.severity]
-          )}
+          className={cn("block h-12 w-[3px]", SEVERITY_BG[caseRow.severity])}
           aria-hidden="true"
         />
       </td>
@@ -431,12 +421,7 @@ function CaseRow({ caseRow }: { caseRow: Case }) {
       </TableCell>
       <TableCell className="px-4 py-3 text-right">
         <Link href={`/clinician/case/${caseRow.id}`}>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1"
-          >
+          <Button type="button" variant="outline" size="sm" className="gap-1">
             Review
             <ChevronRight className="h-3 w-3" />
           </Button>
@@ -501,7 +486,7 @@ function CaseCardMobile({ caseRow }: { caseRow: Case }) {
       <span
         className={cn(
           "absolute bottom-0 left-0 top-0 w-1",
-          SEVERITY_BG[caseRow.severity]
+          SEVERITY_BG[caseRow.severity],
         )}
         aria-hidden="true"
       />

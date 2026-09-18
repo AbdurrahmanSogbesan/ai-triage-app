@@ -277,10 +277,11 @@ export async function endSessionAction(
   // Schedule SOAP + referee generation to run after the response is sent.
   // Failures inside `after()` cannot be surfaced to the patient — the row
   // stays at awaiting_referee with `soap_report = null` and the clinician
-  // case page shows the "Summary not ready" fallback until the pipeline is
-  // re-run via a worker (not yet built). On Vercel this runs within the
-  // function's maxDuration (Pro = 60 s, Hobby = 10 s); set that high enough
-  // on the route that calls this action.
+  // case page shows the "Summary not ready" fallback. Nothing retries it
+  // automatically; recovery means re-running the pipeline out of band.
+  // On Vercel the callback must finish within the function's maxDuration
+  // (Pro = 60 s, Hobby = 10 s), so set that high enough on the route that
+  // calls this action.
   after(async () => {
     try {
       await runAiPipeline({ reportId, transcript, key });

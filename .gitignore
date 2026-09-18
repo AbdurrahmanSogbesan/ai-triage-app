@@ -49,3 +49,6 @@ next-env.d.ts
 evaluation/results/
 
 backups/
+
+# keep the template tracked even though .env* is ignored
+!.env.example

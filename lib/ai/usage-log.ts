@@ -18,10 +18,9 @@ type UsageLike = {
 };
 
 /**
- * Logs token counts + estimated USD cost for a single LLM call. Output goes
- * to the dev server console so you can see real numbers per session while
- * testing on the paid (or free) tier. Safe to leave in production — one
- * console.log per AI call is negligible overhead.
+ * Logs token counts + estimated USD cost for a single LLM call to the server
+ * console, so a session's real token spend is visible while testing. Safe to
+ * leave enabled — one console.log per AI call is negligible overhead.
  */
 export function logUsage(
   label: string,

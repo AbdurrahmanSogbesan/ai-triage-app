@@ -125,7 +125,6 @@ async function main() {
     return { id, expected: String(expected), actuals, correctCount, consistent };
   });
 
-  // ---- Render ----
   const out: string[] = [];
   out.push(`# Cross-run stability report`);
   out.push("");
@@ -148,7 +147,6 @@ async function main() {
   out.push(`Per-run triage accuracy: ${m.triage.map(pct).join(" · ")}`);
   out.push("");
 
-  // Consistency summary.
   const flippers = rows.filter((r) => !r.consistent);
   out.push(`## Per-case triage stability`);
   out.push("");

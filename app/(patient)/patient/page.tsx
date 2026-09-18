@@ -200,7 +200,6 @@ export default async function PatientDashboardPage() {
             </div>
           </section>
 
-          {/* Recent sessions */}
           <section>
             <div className="mb-2.5 flex items-center justify-between px-0.5">
               <h2 className="text-[13px] font-semibold">Recent sessions</h2>
@@ -299,7 +298,6 @@ export default async function PatientDashboardPage() {
             )}
           </section>
 
-          {/* Mobile-only emergency banner at the bottom */}
           <div className="md:hidden">
             <EmergencyBanner />
           </div>

@@ -485,10 +485,8 @@ export function AdminQueue({ cases, clinicians }: Props) {
           </CardContent>
         </Card>
 
-        {/* Sidebar */}
         <aside className="flex flex-col gap-4">
           <ClinicianLoadCard clinicians={clinicians} />
-          {/* TodayCard hidden — its numbers are hardcoded, not real (see below). */}
         </aside>
       </div>
 
@@ -678,35 +676,6 @@ function ClinicianLoadCard({ clinicians }: { clinicians: Clinician[] }) {
     </Card>
   );
 }
-
-// TodayCard: not wired to any query — kpis below are fixed placeholder
-// values that never change. Commented out rather than deleted since this
-// is clearly meant to show real aggregates eventually.
-// function TodayCard() {
-//   const kpis = [
-//     { k: "Triages completed", v: "47" },
-//     { k: "Average wait", v: "23m" },
-//     { k: "AI-only auto-approved", v: "31 (66%)" },
-//     { k: "Referred to referee", v: "5" },
-//   ];
-//   return (
-//     <Card>
-//       <CardContent className="px-5 py-5">
-//         <h3 className="mb-3 text-[13px] font-semibold">Today</h3>
-//         <dl className="flex flex-col gap-2.5">
-//           {kpis.map((x) => (
-//             <div key={x.k} className="flex items-baseline justify-between">
-//               <dt className="text-[12.5px] text-muted-foreground">{x.k}</dt>
-//               <dd className="font-mono text-[13px] font-medium tabular-nums">
-//                 {x.v}
-//               </dd>
-//             </div>
-//           ))}
-//         </dl>
-//       </CardContent>
-//     </Card>
-//   );
-// }
 
 const FALLBACK_SPECIALITY = "General Practice";
 

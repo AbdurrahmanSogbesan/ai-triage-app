@@ -352,7 +352,6 @@ export function renderReport(
   );
   lines.push("");
 
-  // Headline metrics
   lines.push(`## Headline metrics`);
   lines.push("");
   lines.push(`| Metric | Value |`);
@@ -366,7 +365,6 @@ export function renderReport(
   lines.push(`| Confidence reliability holds | ${summary.confidence_reliability_holds ? "yes" : "no"} |`);
   lines.push("");
 
-  // Confusion matrix
   lines.push(`## Triage confusion matrix`);
   lines.push("");
   lines.push(`Rows = expected, columns = actual (evaluable cases only).`);
@@ -382,7 +380,6 @@ export function renderReport(
   }
   lines.push("");
 
-  // Confidence reliability
   lines.push(`## Confidence score reliability`);
   lines.push("");
   lines.push(`Error rate should rise as the band falls (high → low).`);
@@ -396,7 +393,6 @@ export function renderReport(
   }
   lines.push("");
 
-  // Per-case breakdown
   lines.push(`## Per-case breakdown`);
   lines.push("");
   lines.push(

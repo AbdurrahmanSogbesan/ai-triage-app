@@ -14,12 +14,11 @@ import {
 } from "./schemas";
 import { logUsage } from "./usage-log";
 
-// gpt-oss-120b: 120B-parameter OpenAI OSS model on Groq, structured-output
-// native (supports response_format=json_schema, which generateObject uses by
-// default). Chosen over llama-3.3-70b-versatile because that model returns
-// "response format not supported" on json_schema. Bonus: being OpenAI-trained
-// gives the referee genuinely independent model lineage from Gemini-trained
-// SOAP, strengthening the dual-model critique story.
+// gpt-oss-120b supports response_format=json_schema, which generateObject
+// relies on by default; llama-3.3-70b-versatile returns "response format not
+// supported" for the same call. It is also a different model lineage from the
+// Gemini model that writes the SOAP, which is the point of the audit: the
+// referee must not share the generator's failure modes.
 const MODEL_ID = "openai/gpt-oss-120b";
 
 export type RefereeTranscriptTurn = { role: "user" | "assistant"; text: string };
