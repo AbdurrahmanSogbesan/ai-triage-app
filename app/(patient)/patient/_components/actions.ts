@@ -279,9 +279,8 @@ export async function endSessionAction(
   // stays at awaiting_referee with `soap_report = null` and the clinician
   // case page shows the "Summary not ready" fallback. Nothing retries it
   // automatically; recovery means re-running the pipeline out of band.
-  // On Vercel the callback must finish within the function's maxDuration
-  // (Pro = 60 s, Hobby = 10 s), so set that high enough on the route that
-  // calls this action.
+  // On Vercel the callback must finish within the function's maxDuration,
+  // which is set on the interview page that calls this action.
   after(async () => {
     try {
       await runAiPipeline({ reportId, transcript, key });

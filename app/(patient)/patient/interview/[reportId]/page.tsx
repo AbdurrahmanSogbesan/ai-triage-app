@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 
 import { InterviewView } from "./_components/interview-view";
 
+// endSessionAction runs the SOAP + referee pipeline in `after()`, which is
+// bounded by this route's function timeout.
+export const maxDuration = 120;
+
 export default async function InterviewPage({
   params,
 }: {
