@@ -7,6 +7,7 @@ import { startOfDay } from "date-fns";
 import { generateSoapReport } from "@/lib/ai/soap";
 import { runReferee } from "@/lib/ai/referee";
 import { resolveNextSteps, type NextSteps } from "@/lib/patient/next-steps";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   chiefComplaintSchema,
@@ -400,7 +401,12 @@ async function runAiPipeline({
     languageUsed,
   });
 
-  const { error: soapUpdateError } = await supabase
+  // AI results are written with the service role: patients may not set
+  // clinical columns on their own reports, and a database trigger enforces
+  // that for anything written under their login.
+  const admin = createAdminClient();
+
+  const { error: soapUpdateError } = await admin
     .from("consultation_reports")
     .update({
       soap_report: soap,
@@ -428,7 +434,7 @@ async function runAiPipeline({
       soap,
     });
 
-    const { error: refereeUpdateError } = await supabase
+    const { error: refereeUpdateError } = await admin
       .from("consultation_reports")
       .update({
         confidence_score: referee.confidence_score,
