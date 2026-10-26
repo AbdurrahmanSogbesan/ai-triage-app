@@ -17,6 +17,25 @@ const discriminatorTriggeredSchema = z.object({
   evidence: z.string().min(1),
 });
 
+/**
+ * Patient-facing advice written alongside the clinician SOAP. Shown to the
+ * patient only when the referee's confidence clears the gate in
+ * lib/patient/next-steps.ts, so the referee audits it too.
+ */
+export const patientGuidanceSchema = z.object({
+  while_you_wait: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(4)
+    .describe("Plain-language self-care steps until the patient is seen."),
+  seek_emergency_care_if: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(4)
+    .describe("Plain-language warning signs that mean go to emergency care now."),
+});
+export type PatientGuidance = z.infer<typeof patientGuidanceSchema>;
+
 export const soapReportSchema = z.object({
   subjective: z.object({
     chief_complaint: z.string().min(1),
@@ -45,6 +64,7 @@ export const soapReportSchema = z.object({
     next_steps: z.array(z.string()),
     red_flags_to_monitor: z.array(z.string()),
   }),
+  patient_guidance: patientGuidanceSchema,
   metadata: z.object({
     model: z.string().min(1),
     generated_at: z.string().min(1),
@@ -70,6 +90,7 @@ const refereeFlagSchema = z.object({
     "symptom_omitted",
     "complaint_drift",
     "red_flag_omitted",
+    "unsafe_patient_guidance",
   ]),
   severity: z.enum(["low", "medium", "high"]),
   description: z.string().min(1),
@@ -84,6 +105,7 @@ export const refereeOutputSchema = z.object({
     all_symptoms_captured: z.boolean(),
     chief_complaint_aligned: z.boolean(),
     red_flags_not_omitted: z.boolean(),
+    patient_guidance_safe: z.boolean(),
   }),
   flags: z.array(refereeFlagSchema),
 });

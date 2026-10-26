@@ -6,6 +6,7 @@ import { startOfDay } from "date-fns";
 
 import { generateSoapReport } from "@/lib/ai/soap";
 import { runReferee } from "@/lib/ai/referee";
+import { resolveNextSteps, type NextSteps } from "@/lib/patient/next-steps";
 import { createClient } from "@/lib/supabase/server";
 import {
   chiefComplaintSchema,
@@ -191,6 +192,42 @@ export async function getRecentSessions(limit = 20): Promise<RecentSession[]> {
     .order("created_at", { ascending: false })
     .limit(limit);
   return data ?? [];
+}
+
+export type LatestNextSteps = {
+  reportId: string;
+  complaint: string;
+  steps: NextSteps;
+};
+
+/**
+ * Next steps for the patient's most recently ended session. Only that one
+ * session is considered: once it is completed (they've been seen) nothing is
+ * shown, even if an older session is still waiting.
+ */
+export async function getLatestNextSteps(): Promise<LatestNextSteps | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: report } = await supabase
+    .from("consultation_reports")
+    .select(
+      "id, chief_complaint, status, session_ended_at, confidence_score, ai_triage_label, soap_report",
+    )
+    .eq("patient_id", user.id)
+    .in("status", ["awaiting_referee", "awaiting_clinician", "completed"])
+    .not("session_ended_at", "is", null)
+    .order("session_ended_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!report) return null;
+
+  const steps = resolveNextSteps(report);
+  if (!steps) return null;
+  return { reportId: report.id, complaint: report.chief_complaint, steps };
 }
 
 export type PatientSessionStats = {

@@ -28,6 +28,7 @@ import { shortPatientId } from "@/lib/utils";
 import {
   getHasVitalsToday,
   getInProgressSession,
+  getLatestNextSteps,
   getMyPatientProfile,
   getPatientSessionStats,
   getRecentSessions,
@@ -35,6 +36,7 @@ import {
 } from "./_components/actions";
 import { StartTriageFlow } from "./_components/start-triage-flow";
 import { InProgressCard } from "./_components/in-progress-card";
+import { NextStepsCard } from "./_components/next-steps-card";
 
 const CLINIC_NAME = "Sunshine Medical";
 
@@ -63,13 +65,14 @@ function greetingForHour(hour: number): string {
 
 export default async function PatientDashboardPage() {
   const greeting = greetingForHour(new Date().getHours());
-  const [profile, hasVitalsToday, inProgress, recentSessions, stats] =
+  const [profile, hasVitalsToday, inProgress, recentSessions, stats, nextSteps] =
     await Promise.all([
       getMyPatientProfile(),
       getHasVitalsToday(),
       getInProgressSession(),
       getRecentSessions(10),
       getPatientSessionStats(),
+      getLatestNextSteps(),
     ]);
 
   // The (patient) layout already guards the route; if we get here without a
@@ -114,6 +117,12 @@ export default async function PatientDashboardPage() {
           </div>
         </div>
       </header>
+
+      {nextSteps && (
+        <div className="mb-5 md:mb-6">
+          <NextStepsCard latest={nextSteps} />
+        </div>
+      )}
 
       {/* Mobile CTA: big tall block button + vitals helper */}
       <section className="mb-5 md:hidden">

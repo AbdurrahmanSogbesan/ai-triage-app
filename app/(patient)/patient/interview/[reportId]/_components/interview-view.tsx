@@ -150,7 +150,7 @@ export function InterviewView({
       router.push("/patient");
       toast("Session ended", {
         description:
-          "We're preparing your summary for the doctor. It will be ready in a moment.",
+          "We're reviewing your answers. Your next steps will appear on your dashboard shortly.",
       });
     });
   };
