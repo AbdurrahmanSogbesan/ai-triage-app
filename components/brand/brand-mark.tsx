@@ -1,3 +1,4 @@
+import { PULSE_PATH } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -22,7 +23,7 @@ export function BrandMark({ size = 28, className }: Props) {
         fill="none"
       >
         <path
-          d="M3 14h3l2.5-7L12 17l3-7 2 4h4"
+          d={PULSE_PATH}
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"

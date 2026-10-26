@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
+import {
+  createPatientProfile,
+  patientSignupMetadata,
+} from "@/lib/auth/patient-profile";
 import { roleRoot } from "@/lib/auth/roles";
 import {
   LAST_ACTIVITY_COOKIE,
@@ -24,6 +28,12 @@ export async function login(input: {
     password: input.password,
   });
 
+  if (error?.code === "email_not_confirmed") {
+    return {
+      error:
+        "Confirm your email first — follow the link we sent when you registered.",
+    };
+  }
   if (error || !data.user) {
     return { error: error?.message ?? "Sign in failed. Try again." };
   }
@@ -32,22 +42,27 @@ export async function login(input: {
     .from("profiles")
     .select("role")
     .eq("id", data.user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
-    // Auth user exists but no profile row — most likely the signup INSERT
-    // failed mid-flow. Surface it instead of dropping them on a half-broken
+    // Auth user exists but no profile row — the insert in /auth/confirm
+    // failed. Retry it from the signup metadata before giving up, and sign
+    // out on failure so the session doesn't strand them on a half-broken
     // dashboard.
-    return {
-      error:
-        "Your account is missing a profile. Contact support to finish setup.",
-    };
+    const profileError = await createPatientProfile(supabase, data.user);
+    if (profileError) {
+      await supabase.auth.signOut();
+      return {
+        error:
+          "Your account is missing a profile. Contact support to finish setup.",
+      };
+    }
   }
 
   // Invalidate the root layout's render cache so the next request reads the
   // freshly-set session cookies instead of the pre-login render.
   revalidatePath("/", "layout");
-  redirect(roleRoot(profile.role));
+  redirect(roleRoot(profile?.role ?? "patient"));
 }
 
 export async function register(input: {
@@ -58,12 +73,20 @@ export async function register(input: {
   phone: string;
   email: string;
   password: string;
-}): Promise<ActionError | void> {
+}): Promise<ActionError | { confirmEmail: true } | void> {
   const supabase = await createClient();
+  // Server Action POSTs always carry Origin, so this resolves to localhost in
+  // dev and the deployed domain in production. Both must be in the Supabase
+  // Auth redirect allow-list or Supabase falls back to the Site URL.
+  const origin = (await headers()).get("origin");
 
   const { data, error } = await supabase.auth.signUp({
     email: input.email.trim(),
     password: input.password,
+    options: {
+      emailRedirectTo: origin ? `${origin}/auth/confirm` : undefined,
+      data: patientSignupMetadata(input),
+    },
   });
 
   if (error || !data.user) {
@@ -73,23 +96,19 @@ export async function register(input: {
     };
   }
 
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: data.user.id,
-    role: "patient",
-    first_name: input.firstName.trim(),
-    last_name: input.lastName.trim(),
-    email: input.email.trim(),
-    phone: input.phone.trim(),
-    date_of_birth: input.dob,
-    sex: input.sex,
-  });
+  // Email confirmation on: no session until the emailed link is followed,
+  // and /auth/confirm creates the profile. This branch also covers an
+  // already-registered email, which Supabase deliberately reports the same
+  // way so signups can't be used to probe for existing accounts.
+  if (!data.session) return { confirmEmail: true };
 
+  const profileError = await createPatientProfile(supabase, data.user);
   if (profileError) {
-    // Auth user landed but profile insert didn't. The user can technically
-    // log in, but `getSessionProfile()` will return null and they'll bounce
-    // to /login. Surface so they can retry or contact support.
+    // Auth user landed but profile insert didn't. Login retries the insert
+    // from the signup metadata, so surface it and let them sign in again.
+    await supabase.auth.signOut();
     return {
-      error: `Account created but profile setup failed: ${profileError.message}`,
+      error: `Account created but profile setup failed: ${profileError}`,
     };
   }
 

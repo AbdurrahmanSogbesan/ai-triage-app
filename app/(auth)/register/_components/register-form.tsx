@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export function RegisterForm() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const {
     register,
@@ -61,9 +63,6 @@ export function RegisterForm() {
 
   const onSubmit = (values: RegisterInput) => {
     startTransition(async () => {
-      toast.success("Welcome to Sunshine Medical", {
-        description: "Your account is ready.",
-      });
       const result = await registerAction({
         firstName: values.firstName,
         lastName: values.lastName,
@@ -73,7 +72,9 @@ export function RegisterForm() {
         email: values.email,
         password: values.password,
       });
-      if (result?.error) {
+      if (result && "confirmEmail" in result) {
+        router.push("/register/check-email");
+      } else if (result?.error) {
         toast.error("Couldn't create account", { description: result.error });
       }
     });
