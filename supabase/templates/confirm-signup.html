@@ -1,0 +1,128 @@
+<!--
+  Supabase Auth → Email Templates → "Confirm signup".
+  Subject: Confirm your email for Sunshine Medical Centre
+
+  The link must go to /auth/confirm with token_hash + type; RedirectTo is the
+  /auth/confirm URL the register action passes as emailRedirectTo.
+  .Data is the user_metadata set at signup (first_name, last_name, ...).
+  Email-client safe: table layout, inline styles, no SVG, system fonts.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
+    <title>Confirm your email</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#FFFFFF; -webkit-text-size-adjust:100%;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+      One tap to activate your patient account.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFFFF;">
+      <tr>
+        <td align="center" style="padding:36px 20px 40px 20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:500px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <!-- Letterhead -->
+            <tr>
+              <td style="padding-bottom:36px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td valign="middle" style="padding-right:10px;">
+                      <img src="https://www.triageclinic.me/apple-icon" width="26" height="26" alt="" style="display:block; width:26px; height:26px; border:0; border-radius:7px;" />
+                    </td>
+                    <td valign="middle" style="font-size:14px; line-height:20px; font-weight:600; color:#0F172A;">
+                      Sunshine Medical Centre
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Headline + intro -->
+            <tr>
+              <td style="padding-bottom:24px;">
+                <h1 style="margin:0 0 12px 0; font-size:26px; line-height:31px; font-weight:700; letter-spacing:-0.025em; color:#0F172A;">
+                  {{ if .Data.first_name }}{{ .Data.first_name }}, confirm your email{{ else }}Confirm your email{{ end }}
+                </h1>
+                <p style="margin:0; font-size:15px; line-height:24px; color:#475569;">
+                  Your patient account is set up. Confirm this email address to activate it, then you can start your intake.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Patient card -->
+            <tr>
+              <td style="padding-bottom:28px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#047857" style="background-color:#047857; border-radius:14px;">
+                  <tr>
+                    <td style="padding:20px 24px 0 24px;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td style="font-size:13px; line-height:18px; font-weight:600; color:#FFFFFF;">Sunshine Medical Centre</td>
+                          <td align="right" style="font-size:13px; line-height:18px; color:#A7F3D0;">Outpatient</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:44px 24px 22px 24px;">
+                      <div style="font-size:20px; line-height:26px; font-weight:600; letter-spacing:-0.01em; color:#FFFFFF;">
+                        {{ if .Data.first_name }}{{ .Data.first_name }} {{ .Data.last_name }}{{ else }}New patient{{ end }}
+                      </div>
+                      <!-- Mail apps auto-link bare addresses in their own blue; an explicit link keeps the card's colour. -->
+                      <div style="margin-top:2px; font-size:13px; line-height:19px; color:#A7F3D0;">
+                        <a href="mailto:{{ .Email }}" style="color:#A7F3D0; text-decoration:none;">{{ .Email }}</a>
+                      </div>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;">
+                        <tr>
+                          <td style="border:1px solid #34D399; border-radius:999px; padding:3px 10px; font-size:12px; line-height:16px; color:#D1FAE5;">
+                            Not yet active
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Action -->
+            <tr>
+              <td style="padding-bottom:32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td bgcolor="#0F172A" style="background-color:#0F172A; border-radius:8px;">
+                      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+                         style="display:inline-block; padding:13px 22px; font-size:15px; line-height:20px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:8px;">
+                        Activate my account
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:16px 0 0 0; font-size:13px; line-height:20px; color:#64748B;">
+                  If the button doesn't open, copy this link into your browser:<br />
+                  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email" style="color:#047857; text-decoration:underline; word-break:break-all;">{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="border-top:1px solid #E2E8F0; padding-top:20px; font-size:12.5px; line-height:19px; color:#64748B;">
+                The link works once. If you didn't register, ignore this email and no account will be activated.
+                <br /><br />
+                Sunshine Medical Centre, Lagos
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
