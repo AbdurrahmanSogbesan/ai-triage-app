@@ -284,6 +284,7 @@ async function runCase(
       referee = await runReferee({
         chartName: selectedChart,
         chiefComplaint: patientCase.chief_complaint,
+        patient: toPatientProfile(patientCase),
         vitals: patientCase.vitals,
         transcript,
         soap,

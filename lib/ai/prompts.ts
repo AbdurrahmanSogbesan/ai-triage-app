@@ -231,6 +231,7 @@ export function buildSoapSystemPrompt(input: SoapPromptInput): string {
 type RefereePromptInput = {
   chiefComplaint: string;
   chartName: string;
+  patient: Pick<Tables<"profiles">, "date_of_birth" | "sex">;
   vitals: Pick<
     Tables<"vital_records">,
     | "blood_pressure_systolic"
@@ -248,6 +249,9 @@ export function buildRefereeSystemPrompt(input: RefereePromptInput): string {
     "Your job is to score the SOAP for clinical fidelity against the source transcript and to flag specific defects. You are NOT generating a new SOAP — you are critiquing the one provided.",
     "",
     `MTS CHART APPLIED: ${input.chartName}`,
+    // The SOAP author was given age and sex from the patient record, not the
+    // transcript; without them the referee flags them as fabricated.
+    `PATIENT (from the clinic record, not the transcript): ${describeAge(input.patient.date_of_birth)} ${describeSex(input.patient.sex)}`,
     `VITALS: ${formatVitalsForPrompt(input.vitals)}`,
     `CHIEF COMPLAINT (verbatim): ${input.chiefComplaint}`,
     "",

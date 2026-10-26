@@ -422,6 +422,7 @@ async function runAiPipeline({
     const referee = await runReferee({
       chartName,
       chiefComplaint: report.chief_complaint,
+      patient: profile,
       vitals,
       transcript: turns,
       soap,

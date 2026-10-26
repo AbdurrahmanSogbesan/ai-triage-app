@@ -25,6 +25,15 @@ const HOW_SOON: Record<Enums<"triage_level">, string | null> = {
   blue: "Book a routine visit when it suits you.",
 };
 
+// Red/orange patients are told to go to hospital now, so what they do in the
+// meantime is fixed rather than model-written: in testing the model gave an
+// orange chest-pain patient "rest as much as possible" advice.
+const ON_THE_WAY = [
+  "Don't drive yourself. Ask someone to take you, or call 112.",
+  "If you can, have someone stay with you.",
+  "Bring your medicines, or a list of them.",
+];
+
 export type NextSteps =
   | { kind: "preparing"; refreshUntil: number }
   | {
@@ -82,7 +91,7 @@ export function resolveNextSteps(
         kind: "guidance",
         goNow,
         howSoon: level ? HOW_SOON[level] : null,
-        whileYouWait: guidance.while_you_wait,
+        whileYouWait: goNow ? ON_THE_WAY : guidance.while_you_wait,
         seekEmergencyCareIf: guidance.seek_emergency_care_if,
       };
     }

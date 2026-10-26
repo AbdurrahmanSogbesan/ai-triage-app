@@ -26,6 +26,7 @@ export type RefereeTranscriptTurn = { role: "user" | "assistant"; text: string }
 export type RunRefereeInput = {
   chartName: string;
   chiefComplaint: string;
+  patient: Pick<Tables<"profiles">, "date_of_birth" | "sex">;
   vitals: Pick<
     Tables<"vital_records">,
     | "blood_pressure_systolic"
@@ -54,6 +55,7 @@ export async function runReferee(input: RunRefereeInput): Promise<RefereeOutput>
     system: buildRefereeSystemPrompt({
       chartName: input.chartName,
       chiefComplaint: input.chiefComplaint,
+      patient: input.patient,
       vitals: input.vitals,
       transcript: input.transcript,
       soapJson: JSON.stringify(input.soap, null, 2),
