@@ -6,12 +6,16 @@
  */
 export const INTERVIEW_MESSAGE_LIMIT = 25;
 
+/** From this patient message on, the assistant is told how few questions remain. */
+export const INTERVIEW_PRIORITISE_FROM = 19;
+
 /**
- * From this patient message on, the assistant is told to start wrapping up,
- * leaving room for the closing question, the patient's answer and the
- * closing message before the hard cap.
+ * From this patient message on, the route sends the fixed closing question
+ * and closing message itself instead of calling the model. A prompt alone
+ * doesn't reliably stop the model probing, and this guarantees a clean
+ * ending before the hard cap.
  */
-export const INTERVIEW_WRAP_UP_FROM = INTERVIEW_MESSAGE_LIMIT - 3;
+export const INTERVIEW_CLOSE_FROM = 23;
 
 /** Response body the chat route returns at the cap; the client matches on it. */
 export const INTERVIEW_LIMIT_REACHED = "interview_message_limit_reached";

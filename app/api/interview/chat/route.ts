@@ -1,15 +1,26 @@
 import "server-only";
 
 import { google } from "@ai-sdk/google";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+  type UIMessage,
+} from "ai";
 
 import { selectChart } from "@/lib/ai/chart-selector";
-import { buildInterviewSystemPrompt } from "@/lib/ai/prompts";
+import {
+  buildInterviewSystemPrompt,
+  INTERVIEW_CLOSING_MESSAGE,
+  INTERVIEW_CLOSING_QUESTION,
+} from "@/lib/ai/prompts";
 import { logUsage } from "@/lib/ai/usage-log";
 import {
+  INTERVIEW_CLOSE_FROM,
   INTERVIEW_LIMIT_REACHED,
   INTERVIEW_MESSAGE_LIMIT,
-  INTERVIEW_WRAP_UP_FROM,
+  INTERVIEW_PRIORITISE_FROM,
 } from "@/lib/interview/limits";
 import { createClient } from "@/lib/supabase/server";
 
@@ -62,6 +73,15 @@ export async function POST(req: Request) {
   if (patientMessages > INTERVIEW_MESSAGE_LIMIT) {
     return new Response(INTERVIEW_LIMIT_REACHED, { status: 429 });
   }
+  if (patientMessages >= INTERVIEW_CLOSE_FROM) {
+    const previous = lastAssistantText(body.messages);
+    const closed =
+      previous === INTERVIEW_CLOSING_QUESTION ||
+      previous === INTERVIEW_CLOSING_MESSAGE;
+    return fixedReply(
+      closed ? INTERVIEW_CLOSING_MESSAGE : INTERVIEW_CLOSING_QUESTION,
+    );
+  }
 
   const [{ data: profile }, { data: vitals }] = await Promise.all([
     supabase
@@ -112,7 +132,10 @@ export async function POST(req: Request) {
     chiefComplaint: report.chief_complaint,
     patient: profile,
     vitals,
-    wrapUp: patientMessages >= INTERVIEW_WRAP_UP_FROM,
+    questionsLeft:
+      patientMessages >= INTERVIEW_PRIORITISE_FROM
+        ? INTERVIEW_CLOSE_FROM - patientMessages
+        : undefined,
   });
 
   const result = streamText({
@@ -136,4 +159,26 @@ export async function POST(req: Request) {
   });
 
   return result.toUIMessageStreamResponse();
+}
+
+function lastAssistantText(messages: UIMessage[]): string | null {
+  const last = messages.findLast((m) => m.role === "assistant");
+  if (!last) return null;
+  return last.parts
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join("")
+    .trim();
+}
+
+/** Streams a fixed assistant reply without calling the model. */
+function fixedReply(text: string): Response {
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute({ writer }) {
+        writer.write({ type: "text-start", id: "fixed" });
+        writer.write({ type: "text-delta", id: "fixed", delta: text });
+        writer.write({ type: "text-end", id: "fixed" });
+      },
+    }),
+  });
 }

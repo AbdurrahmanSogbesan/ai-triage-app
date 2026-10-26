@@ -4,6 +4,12 @@ import type { Tables } from "@/types/database";
 
 import { getMtsChart, MTS_CHARTS, type MtsChart } from "./mts-charts";
 
+/** Exact wording of the interview's closing turns; the chat route also sends these itself near the message cap. */
+export const INTERVIEW_CLOSING_QUESTION =
+  "Is there anything else you'd like to add before I prepare your summary?";
+export const INTERVIEW_CLOSING_MESSAGE =
+  "Thank you. The doctor will review everything you've shared.";
+
 const GENERAL_RED_FLAGS = [
   "Severe pain not relieved by simple painkillers",
   "Difficulty breathing or chest tightness at rest",
@@ -71,8 +77,8 @@ type InterviewPromptInput = {
     | "temperature_celsius"
     | "weight_kg"
   >;
-  /** Near the per-interview message cap: steer straight to the closing turns. */
-  wrapUp?: boolean;
+  /** Set near the per-interview message cap; the route closes the interview itself after that. */
+  questionsLeft?: number;
 };
 
 export function buildInterviewSystemPrompt(input: InterviewPromptInput): string {
@@ -89,6 +95,12 @@ export function buildInterviewSystemPrompt(input: InterviewPromptInput): string 
     input.patient.preferred_language?.trim() || "English";
 
   return [
+    ...(input.questionsLeft !== undefined
+      ? [
+          `INTERVIEW LENGTH: at most ${input.questionsLeft} more question${input.questionsLeft === 1 ? "" : "s"} before this interview closes automatically. Spend them only on the most important unchecked red flags for this complaint.`,
+          "",
+        ]
+      : []),
     "You are conducting a triage interview for a patient at a Nigerian outpatient clinic.",
     `Apply the Manchester Triage System "${chart.name}" flowchart.`,
     "",
@@ -135,16 +147,9 @@ export function buildInterviewSystemPrompt(input: InterviewPromptInput): string 
     "- Once the implicated red/orange cluster has been characterised, broaden to other discriminators on this chart and to the general red flags, still one at a time and in plain language.",
     "",
     "WRAPPING UP (two discrete turns, never combined):",
-    "- TURN A — closing question. When you have characterised the implicated cluster, checked relevant red flags, and have nothing material left to probe, your next reply is EXACTLY the sentence: \"Is there anything else you'd like to add before I prepare your summary?\" — nothing else, no preamble, no narration.",
-    "- TURN B — closing message. After the patient's reply to TURN A, if their reply is 'no', 'no thanks', 'that's everything', 'I'm done', or any equivalent with no new clinical content, your next reply is EXACTLY one short sentence thanking the patient and saying the doctor will see what they shared (e.g. \"Thank you. The doctor will review everything you've shared.\"). Nothing else. This is the only reply in the entire conversation where \"Thank you\" is allowed.",
+    `- TURN A — closing question. When you have characterised the implicated cluster, checked relevant red flags, and have nothing material left to probe, your next reply is EXACTLY the sentence: \"${INTERVIEW_CLOSING_QUESTION}\" — nothing else, no preamble, no narration.`,
+    `- TURN B — closing message. After the patient's reply to TURN A, if their reply is 'no', 'no thanks', 'that's everything', 'I'm done', or any equivalent with no new clinical content, your next reply is EXACTLY one short sentence thanking the patient and saying the doctor will see what they shared (e.g. \"${INTERVIEW_CLOSING_MESSAGE}\"). Nothing else. This is the only reply in the entire conversation where \"Thank you\" is allowed.`,
     "- If the patient's reply to TURN A introduces NEW clinical information (a forgotten symptom, a medication, a worsening, etc.), treat it as a normal answer — probe that content with another focused question and delay TURN B until the next time the patient has nothing to add.",
-    ...(input.wrapUp
-      ? [
-          "",
-          "LENGTH LIMIT REACHED:",
-          "- This interview is about to hit its maximum length. Ask no further probing questions. If you have not yet sent TURN A, your next reply is TURN A. If TURN A has already been sent, your next reply is TURN B, even if the patient added something new.",
-        ]
-      : []),
   ].join("\n");
 }
 
