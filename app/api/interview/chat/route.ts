@@ -6,6 +6,11 @@ import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { selectChart } from "@/lib/ai/chart-selector";
 import { buildInterviewSystemPrompt } from "@/lib/ai/prompts";
 import { logUsage } from "@/lib/ai/usage-log";
+import {
+  INTERVIEW_LIMIT_REACHED,
+  INTERVIEW_MESSAGE_LIMIT,
+  INTERVIEW_WRAP_UP_FROM,
+} from "@/lib/interview/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
@@ -43,6 +48,19 @@ export async function POST(req: Request) {
   }
   if (report.status !== "in_progress") {
     return new Response("Session is no longer in progress", { status: 409 });
+  }
+
+  // Counted server-side (the client sends its own history, which it could
+  // trim) before any model call is made.
+  const { data: patientMessages, error: countError } = await supabase.rpc(
+    "record_interview_message",
+    { p_report_id: body.reportId },
+  );
+  if (countError) {
+    return new Response("Could not record message", { status: 500 });
+  }
+  if (patientMessages > INTERVIEW_MESSAGE_LIMIT) {
+    return new Response(INTERVIEW_LIMIT_REACHED, { status: 429 });
   }
 
   const [{ data: profile }, { data: vitals }] = await Promise.all([
@@ -94,6 +112,7 @@ export async function POST(req: Request) {
     chiefComplaint: report.chief_complaint,
     patient: profile,
     vitals,
+    wrapUp: patientMessages >= INTERVIEW_WRAP_UP_FROM,
   });
 
   const result = streamText({

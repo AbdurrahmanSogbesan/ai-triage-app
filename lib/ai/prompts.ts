@@ -71,6 +71,8 @@ type InterviewPromptInput = {
     | "temperature_celsius"
     | "weight_kg"
   >;
+  /** Near the per-interview message cap: steer straight to the closing turns. */
+  wrapUp?: boolean;
 };
 
 export function buildInterviewSystemPrompt(input: InterviewPromptInput): string {
@@ -136,6 +138,13 @@ export function buildInterviewSystemPrompt(input: InterviewPromptInput): string 
     "- TURN A — closing question. When you have characterised the implicated cluster, checked relevant red flags, and have nothing material left to probe, your next reply is EXACTLY the sentence: \"Is there anything else you'd like to add before I prepare your summary?\" — nothing else, no preamble, no narration.",
     "- TURN B — closing message. After the patient's reply to TURN A, if their reply is 'no', 'no thanks', 'that's everything', 'I'm done', or any equivalent with no new clinical content, your next reply is EXACTLY one short sentence thanking the patient and saying the doctor will see what they shared (e.g. \"Thank you. The doctor will review everything you've shared.\"). Nothing else. This is the only reply in the entire conversation where \"Thank you\" is allowed.",
     "- If the patient's reply to TURN A introduces NEW clinical information (a forgotten symptom, a medication, a worsening, etc.), treat it as a normal answer — probe that content with another focused question and delay TURN B until the next time the patient has nothing to add.",
+    ...(input.wrapUp
+      ? [
+          "",
+          "LENGTH LIMIT REACHED:",
+          "- This interview is about to hit its maximum length. Ask no further probing questions. If you have not yet sent TURN A, your next reply is TURN A. If TURN A has already been sent, your next reply is TURN B, even if the patient added something new.",
+        ]
+      : []),
   ].join("\n");
 }
 

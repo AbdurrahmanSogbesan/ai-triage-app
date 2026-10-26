@@ -278,6 +278,10 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      record_interview_message: {
+        Args: { p_report_id: string }
+        Returns: number
+      }
       save_consultation_transcript: {
         Args: { p_key: string; p_report_id: string; p_transcript: string }
         Returns: undefined

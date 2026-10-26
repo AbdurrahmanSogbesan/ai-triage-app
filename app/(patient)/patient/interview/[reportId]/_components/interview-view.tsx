@@ -5,6 +5,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   AlertTriangle,
   ArrowLeft,
+  CircleCheck,
   Mic,
   Send,
   Square,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { endSessionAction } from "@/app/(patient)/patient/_components/actions";
+import { INTERVIEW_LIMIT_REACHED } from "@/lib/interview/limits";
 
 type Props = {
   reportId: string;
@@ -130,6 +132,8 @@ export function InterviewView({
   const isStreaming = status === "streaming";
   const isBusy = isThinking || isStreaming;
   const hasError = status === "error";
+
+  const handleOpenEnd = () => setEndOpen(true);
 
   const handleEndSession = () => {
     startEndTransition(async () => {
@@ -235,7 +239,9 @@ export function InterviewView({
 
         <ChatScroll messages={messages} isThinking={isThinking} />
 
-        {hasError ? (
+        {hasError && error?.message === INTERVIEW_LIMIT_REACHED ? (
+          <LimitReachedComposer onEnd={handleOpenEnd} />
+        ) : hasError ? (
           <ErrorComposer
             message={error?.message ?? "Something went wrong."}
             onRetry={handleRetry}
@@ -645,6 +651,32 @@ function ErrorComposer({
             </Button>
             <Button size="sm" variant="outline">
               Get help at the front desk
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LimitReachedComposer({ onEnd }: { onEnd: () => void }) {
+  return (
+    <div className="border-t border-border bg-muted/50 px-4 py-4 md:px-8 md:py-5">
+      <div className="mx-auto flex w-full max-w-180 items-start gap-3">
+        <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-[13.5px] font-medium">
+              This interview has reached its length limit
+            </p>
+            <p className="text-[13px] text-muted-foreground">
+              Everything you&apos;ve shared so far is saved. End the session so
+              a clinician can review your answers.
+            </p>
+          </div>
+          <div>
+            <Button size="sm" onClick={onEnd}>
+              End session
             </Button>
           </div>
         </div>

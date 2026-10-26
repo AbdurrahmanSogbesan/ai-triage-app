@@ -516,6 +516,13 @@ export async function startConsultationAction(
     .select("id")
     .single();
 
+  // Raised by the consultation_reports_daily_limit trigger.
+  if (error?.message.includes("daily_triage_limit")) {
+    return {
+      error:
+        "You've started 5 triages today, which is the daily limit. If you need care now, go to the nearest hospital or call 112.",
+    };
+  }
   if (error) return { error: error.message };
   return { reportId: data.id };
 }
